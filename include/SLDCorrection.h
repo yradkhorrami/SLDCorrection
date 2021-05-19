@@ -43,7 +43,8 @@ class SLDCorrection : public Processor
 		virtual void Clear();
 		virtual void processRunHeader();
 		virtual void processEvent( EVENT::LCEvent *pLCEvent );
-		virtual void getMCLeptonVec( EVENT::LCEvent *pLCEvent , std::vector<const EVENT::MCParticle*> mcLeptonVecBSLD , std::vector<const EVENT::MCParticle*> mcLeptonVecCSLD );
+//		virtual void getMCLeptonVec( EVENT::LCEvent *pLCEvent , EVENT::MCParticleVec &mcLeptonVecBSLD , EVENT::MCParticleVec &mcLeptonVecCSLD );
+		std::vector<MCParticle*> getMCLeptonVec( EVENT::LCEvent *pLCEvent , int ParentHadronPDG );
 		virtual void check( EVENT::LCEvent *pLCEvent );
 		virtual void end();
 

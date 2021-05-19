@@ -4,6 +4,7 @@
 #include "EVENT/LCCollection.h"
 #include "IMPL/LCCollectionVec.h"
 #include "EVENT/MCParticle.h"
+#include "EVENT/Vertex.h"
 #include "EVENT/ReconstructedParticle.h"
 #include <IMPL/ReconstructedParticleImpl.h>
 #include "IMPL/ParticleIDImpl.h"
@@ -70,6 +71,18 @@ SLDCorrection::SLDCorrection() :
 					std::string("SLDNeutrinoCollection")
 				);
 
+	registerProcessorParameter(	"fillRootTree",
+					"Fill root tree to check processor performance",
+					m_fillRootTree,
+					bool(true)
+				);
+
+	registerProcessorParameter(	"RootFile",
+	                                "Name of the output root file",
+					m_rootFile,
+					std::string("Output.root")
+				);
+
 }
 
 void SLDCorrection::init()
@@ -108,10 +121,54 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 
         try
         {
-		std::vector<const EVENT::MCParticle*> mcLeptonVecBSLD;
-		std::vector<const EVENT::MCParticle*> mcLeptonVecCSLD;
-		getMCLeptonVec( pLCEvent , mcLeptonVecBSLD , mcLeptonVecCSLD );
+		std::vector<MCParticle*> mcLeptonVecBSLD;
+		std::vector<MCParticle*> mcLeptonVecCSLD;
+		mcLeptonVecBSLD = getMCLeptonVec( pLCEvent , 5 );
+		mcLeptonVecCSLD = getMCLeptonVec( pLCEvent , 4 );
+		streamlog_out(DEBUG4) << "	" << mcLeptonVecBSLD.size() << " semi-leptonic decay of B-Hadron found in MCTruth " << std::endl;
+		for ( long unsigned int i_BSLD = 0 ; i_BSLD < mcLeptonVecBSLD.size() ; ++i_BSLD )
+		{
+			MCParticle *mcLepton = mcLeptonVecBSLD.at( i_BSLD );
+			streamlog_out(DEBUG3) << "		" << i_BSLD+1 << ") PDG code of Lepton: 	" << mcLepton->getPDG() << std::endl;
+			streamlog_out(DEBUG3) << "		" << i_BSLD+1 << ") Momentum (px,py,pz): 	( " << mcLepton->getMomentum()[ 0 ] << "	, " << mcLepton->getMomentum()[ 1 ] << "	 , " << mcLepton->getMomentum()[ 2 ] << "	)" << std::endl;
+			streamlog_out(DEBUG3) << "		" << i_BSLD+1 << ") Vertex (x,y,z): 		( " << mcLepton->getVertex()[ 0 ] << "	, " << mcLepton->getVertex()[ 1 ] << "	 , " << mcLepton->getVertex()[ 2 ] << "	)" << std::endl;
+		}
+		streamlog_out(DEBUG4) << "	" << mcLeptonVecCSLD.size() << " semi-leptonic decay of C-Hadron found in MCTruth " << std::endl;
+		for ( long unsigned int i_CSLD = 0 ; i_CSLD < mcLeptonVecCSLD.size() ; ++i_CSLD )
+		{
+			MCParticle *mcLepton = mcLeptonVecCSLD.at( i_CSLD );
+			streamlog_out(DEBUG3) << "		" << i_CSLD+1 << ") PDG code of Lepton: 	" << mcLepton->getPDG() << std::endl;
+			streamlog_out(DEBUG3) << "		" << i_CSLD+1 << ") Momentum (px,py,pz): 	( " << mcLepton->getMomentum()[ 0 ] << "	, " << mcLepton->getMomentum()[ 1 ] << "	 , " << mcLepton->getMomentum()[ 2 ] << "	)" << std::endl;
+			streamlog_out(DEBUG3) << "		" << i_CSLD+1 << ") Vertex (x,y,z): 		( " << mcLepton->getVertex()[ 0 ] << "	, " << mcLepton->getVertex()[ 1 ] << "	 , " << mcLepton->getVertex()[ 2 ] << "	)" << std::endl;
+		}
 		RecoJetCollection = pLCEvent->getCollection( m_inputJetCollection );
+		int nJets = RecoJetCollection->getNumberOfElements();
+		int nPFOs = 0;
+		for ( int i_jet = 0 ; i_jet < nJets ; ++i_jet )
+		{
+			ReconstructedParticle* Jet = dynamic_cast<ReconstructedParticle*>( RecoJetCollection->getElementAt( i_jet ) );
+			ReconstructedParticleVec jetPFOs = Jet->getParticles();
+       		 	nPFOs = jetPFOs.size();
+       		 	streamlog_out(DEBUG4) << "	Number of PFOs in the jet[ " << i_jet << " ]: " << nPFOs << std::endl;
+			for ( int i_pfo = 0 ; i_pfo < nPFOs ; ++i_pfo )
+			{
+				ReconstructedParticle *testPFO = jetPFOs[ i_pfo ];
+				if ( abs( testPFO->getType() ) == 11 || abs( testPFO->getType() ) == 13 )
+				{
+					const EVENT::TrackVec& PFOtrkvec = testPFO->getTracks();
+					Track *inputTrk = (Track*)PFOtrkvec.at(0);
+					Vertex *pfoVertex = testPFO->getStartVertex();
+//					inputTrk->getRadiusOfInnermostHit();
+					streamlog_out(DEBUG4) << "	Found a lepton in the jet[ " << i_jet << " ]: " << " with TYPE: " << testPFO->getType() << std::endl;
+					streamlog_out(DEBUG3) << "		TYPE: 			" << testPFO->getType() << std::endl;
+					streamlog_out(DEBUG3) << "		Number of tracks:	" << PFOtrkvec.size() << std::endl;
+					streamlog_out(DEBUG3) << "		RadiusOfInnermostHit:	" << inputTrk->getRadiusOfInnermostHit() << std::endl;
+					streamlog_out(DEBUG3) << "		Momentum (px,py,pz): 	( " << testPFO->getMomentum()[ 0 ] << "	, " << testPFO->getMomentum()[ 1 ] << "	 , " << testPFO->getMomentum()[ 2 ] << "	)" << std::endl;
+//					streamlog_out(DEBUG3) << "		Vertex (x,y,z): 	( " << ( testPFO->getStartVertex() )->getPosition()[ 0 ] << "	, " << ( testPFO->getStartVertex() )->getPosition()[ 1 ] << "	 , " << ( testPFO->getStartVertex() )->getPosition()[ 2 ] << "	)" << std::endl;
+				}
+			}
+		}
+
 
 	}
 	catch(DataNotAvailableException &e)
@@ -121,65 +178,54 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 
 }
 
-void SLDCorrection::getMCLeptonVec( EVENT::LCEvent *pLCEvent , std::vector<const EVENT::MCParticle*> mcLeptonVecBSLD , std::vector<const EVENT::MCParticle*> mcLeptonVecCSLD )
+std::vector<MCParticle*> SLDCorrection::getMCLeptonVec( EVENT::LCEvent *pLCEvent , int ParentHadronPDG )
 {
 	LCCollection *MCParticleCollection{};
+	std::vector<MCParticle*> mcLeptonVecSLD;
+	std::string hadron = "";
+	if ( ParentHadronPDG == 4 ) hadron = "C-Hadron";
+	if ( ParentHadronPDG == 5 ) hadron = "B-Hadron";
 	try
         {
 		MCParticleCollection = pLCEvent->getCollection( m_mcParticleCollection );
 		int nMCP = MCParticleCollection->getNumberOfElements();
+		MCParticle *testLepton = NULL;
 		for ( int i_mcp = 0 ; i_mcp < nMCP ; ++i_mcp )
 		{
-			const EVENT::MCParticle *testLepton = dynamic_cast<EVENT::MCParticle*>( MCParticleCollection->getElementAt( i_mcp ) );
-			int nLeptonsInVertexBSLD = 0;
-			int nLeptonsInVertexCSLD = 0;
-			bool foundBSLD = false;
-			bool foundCSLD = false;
+			testLepton = dynamic_cast<EVENT::MCParticle*>( MCParticleCollection->getElementAt( i_mcp ) );
+			int nLeptonsInVertexSLD = 0;
+			bool foundSLD = false;
 			if ( ( abs( testLepton->getPDG() ) == 11 || abs( testLepton->getPDG() ) == 13 ) && ( testLepton->getGeneratorStatus() == 1 ) )
 			{
 				for ( long unsigned int i_parent = 0 ; i_parent < ( testLepton->getParents() ).size() ; ++i_parent )
 				{
 					const EVENT::MCParticle *testMotherHadron = testLepton->getParents()[ i_parent ];
-					if ( floor( abs( testMotherHadron->getPDG() ) / 100 ) == 5 || ( floor( abs( testMotherHadron->getPDG() ) / 1000 ) == 5 ) )
+					if ( floor( abs( testMotherHadron->getPDG() ) / 100 ) == ParentHadronPDG || ( floor( abs( testMotherHadron->getPDG() ) / 1000 ) == ParentHadronPDG ) )
 					{
 						for ( long unsigned int i_daughter = 0 ; i_daughter < ( testMotherHadron->getDaughters() ).size() ; ++i_daughter )
 						{
 							if ( ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 11 || abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 13 ) && ( testMotherHadron->getDaughters()[ i_daughter ] )->getGeneratorStatus() == 1 )
 							{
-								++nLeptonsInVertexBSLD;
+								++nLeptonsInVertexSLD;
 							}
 							if ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == abs( testLepton->getPDG() ) + 1 )
 							{
-								mcLeptonVecBSLD.push_back( testLepton );
-								foundBSLD = true;
-							}
-						}
-					}
-					if ( floor( abs( testMotherHadron->getPDG() ) / 100 ) == 4 || ( floor( abs( testMotherHadron->getPDG() ) / 1000 ) == 4 ) )
-					{
-						for ( long unsigned int i_daughter = 0 ; i_daughter < ( testMotherHadron->getDaughters() ).size() ; ++i_daughter )
-						{
-							if ( ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 11 || abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 13 ) && ( testMotherHadron->getDaughters()[ i_daughter ] )->getGeneratorStatus() == 1 )
-							{
-								++nLeptonsInVertexCSLD;
-							}
-							if ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == abs( testLepton->getPDG() ) + 1 )
-							{
-								mcLeptonVecCSLD.push_back( testLepton );
-								foundCSLD = true;
+								mcLeptonVecSLD.push_back( testLepton );
+								foundSLD = true;
 							}
 						}
 					}
 				}
-				if ( foundBSLD ) streamlog_out(DEBUG0) << "	One Semi-Leptonic Decay of B-Hadron is found ; Number of leptons associated to SLD vertex : " << nLeptonsInVertexBSLD << std::endl;
-				if ( foundCSLD ) streamlog_out(DEBUG0) << "	One Semi-Leptonic Decay of C-Hadron is found ; Number of leptons associated to SLD vertex : " << nLeptonsInVertexCSLD << std::endl;
+				if ( foundSLD ) streamlog_out(DEBUG0) << "	One Semi-Leptonic Decay of " << hadron << " is found ; Number of leptons associated to SLD vertex : " << nLeptonsInVertexSLD << std::endl;
 			}
 		}
+		streamlog_out(DEBUG0) << "	" << mcLeptonVecSLD.size() << " Semi-Leptonic Decay(s) of " << hadron << " found" << std::endl;
 	}
 	catch(DataNotAvailableException &e)
         {
         	streamlog_out(MESSAGE) << "	Input " << MCParticleCollection << " collection not found in event " << pLCEvent->getEventNumber() << std::endl;
         }
+	return mcLeptonVecSLD;
 }
 
 void SLDCorrection::check( EVENT::LCEvent *pLCEvent )
