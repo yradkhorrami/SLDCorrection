@@ -98,6 +98,7 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 
 	m_nRun = pLCEvent->getRunNumber();
 	m_nEvt = pLCEvent->getEventNumber();
+	LCCollection *RecoJetCollection{};
 	++m_nEvtSum;
 	this->Clear();
 	streamlog_out(MESSAGE) << "" << std::endl;
@@ -107,6 +108,10 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 
         try
         {
+		std::vector<const EVENT::MCParticle*> mcLeptonVecBSLD;
+		std::vector<const EVENT::MCParticle*> mcLeptonVecCSLD;
+		getMCLeptonVec( pLCEvent , mcLeptonVecBSLD , mcLeptonVecCSLD );
+		RecoJetCollection = pLCEvent->getCollection( m_inputJetCollection );
 
 	}
 	catch(DataNotAvailableException &e)
@@ -114,6 +119,67 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
         	streamlog_out(MESSAGE) << "	Input collection not found in event " << m_nEvt << std::endl;
         }
 
+}
+
+void SLDCorrection::getMCLeptonVec( EVENT::LCEvent *pLCEvent , std::vector<const EVENT::MCParticle*> mcLeptonVecBSLD , std::vector<const EVENT::MCParticle*> mcLeptonVecCSLD )
+{
+	LCCollection *MCParticleCollection{};
+	try
+        {
+		MCParticleCollection = pLCEvent->getCollection( m_mcParticleCollection );
+		int nMCP = MCParticleCollection->getNumberOfElements();
+		for ( int i_mcp = 0 ; i_mcp < nMCP ; ++i_mcp )
+		{
+			const EVENT::MCParticle *testLepton = dynamic_cast<EVENT::MCParticle*>( MCParticleCollection->getElementAt( i_mcp ) );
+			int nLeptonsInVertexBSLD = 0;
+			int nLeptonsInVertexCSLD = 0;
+			bool foundBSLD = false;
+			bool foundCSLD = false;
+			if ( ( abs( testLepton->getPDG() ) == 11 || abs( testLepton->getPDG() ) == 13 ) && ( testLepton->getGeneratorStatus() == 1 ) )
+			{
+				for ( long unsigned int i_parent = 0 ; i_parent < ( testLepton->getParents() ).size() ; ++i_parent )
+				{
+					const EVENT::MCParticle *testMotherHadron = testLepton->getParents()[ i_parent ];
+					if ( floor( abs( testMotherHadron->getPDG() ) / 100 ) == 5 || ( floor( abs( testMotherHadron->getPDG() ) / 1000 ) == 5 ) )
+					{
+						for ( long unsigned int i_daughter = 0 ; i_daughter < ( testMotherHadron->getDaughters() ).size() ; ++i_daughter )
+						{
+							if ( ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 11 || abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 13 ) && ( testMotherHadron->getDaughters()[ i_daughter ] )->getGeneratorStatus() == 1 )
+							{
+								++nLeptonsInVertexBSLD;
+							}
+							if ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == abs( testLepton->getPDG() ) + 1 )
+							{
+								mcLeptonVecBSLD.push_back( testLepton );
+								foundBSLD = true;
+							}
+						}
+					}
+					if ( floor( abs( testMotherHadron->getPDG() ) / 100 ) == 4 || ( floor( abs( testMotherHadron->getPDG() ) / 1000 ) == 4 ) )
+					{
+						for ( long unsigned int i_daughter = 0 ; i_daughter < ( testMotherHadron->getDaughters() ).size() ; ++i_daughter )
+						{
+							if ( ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 11 || abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == 13 ) && ( testMotherHadron->getDaughters()[ i_daughter ] )->getGeneratorStatus() == 1 )
+							{
+								++nLeptonsInVertexCSLD;
+							}
+							if ( abs( ( testMotherHadron->getDaughters()[ i_daughter ] )->getPDG() ) == abs( testLepton->getPDG() ) + 1 )
+							{
+								mcLeptonVecCSLD.push_back( testLepton );
+								foundCSLD = true;
+							}
+						}
+					}
+				}
+				if ( foundBSLD ) streamlog_out(DEBUG0) << "	One Semi-Leptonic Decay of B-Hadron is found ; Number of leptons associated to SLD vertex : " << nLeptonsInVertexBSLD << std::endl;
+				if ( foundCSLD ) streamlog_out(DEBUG0) << "	One Semi-Leptonic Decay of C-Hadron is found ; Number of leptons associated to SLD vertex : " << nLeptonsInVertexCSLD << std::endl;
+			}
+		}
+	}
+	catch(DataNotAvailableException &e)
+        {
+        	streamlog_out(MESSAGE) << "	Input " << MCParticleCollection << " collection not found in event " << pLCEvent->getEventNumber() << std::endl;
+        }
 }
 
 void SLDCorrection::check( EVENT::LCEvent *pLCEvent )
