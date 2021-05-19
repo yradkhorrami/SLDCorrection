@@ -54,6 +54,8 @@ class SLDCorrection : public Processor
 
 		std::string				m_mcParticleCollection{};
 		std::string				m_inputPfoCollection{};
+		std::string				m_inputJetCollection{};
+		std::string				m_SLDNuCollection{};
 		std::string				m_rootFile{};
 
 		bool					m_fillRootTree = true;
@@ -62,6 +64,8 @@ class SLDCorrection : public Processor
 		int					m_nEvt;
 		int					m_nRunSum;
 		int					m_nEvtSum;
+		TFile					*m_pTFile{};
+		TTree					*m_pTTree{};
 
 };
 
