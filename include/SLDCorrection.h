@@ -44,7 +44,17 @@ class SLDCorrection : public Processor
 		virtual void processRunHeader();
 		virtual void processEvent( EVENT::LCEvent *pLCEvent );
 //		virtual void getMCLeptonVec( EVENT::LCEvent *pLCEvent , EVENT::MCParticleVec &mcLeptonVecBSLD , EVENT::MCParticleVec &mcLeptonVecCSLD );
-		std::vector<MCParticle*> getMCLeptonVec( EVENT::LCEvent *pLCEvent , int ParentHadronPDG );
+		std::vector<MCParticle*> getMCLeptonVec( EVENT::LCEvent *pLCEvent , int parentHadronPDG );
+		TVector3 getTrueFlightDirection( MCParticle *SLDLepton );
+		TLorentzVector getTrueVisibleFourMomentum( MCParticle *SLDLepton , bool getChargedTLV , bool getNeutralTLV );
+		TLorentzVector getTrueFourMomentumNeutrino( MCParticle *SLDLepton );
+		TLorentzVector getNeutrinoFourMomentum( TVector3 flightDirection , TLorentzVector fourMomentumLepton , TLorentzVector visibleFourMomentumCharged , TLorentzVector visibleFourMomentumNeutral , double parentHadronMass , int solutionSign );
+		std::vector< float > getNeutrinoCovMat( TVector3 flightDirection , TLorentzVector fourMomentumLepton , TLorentzVector visibleFourMomentumCharged , TLorentzVector visibleFourMomentumNeutral , double parentHadronMass , std::vector< float > flightDirectionCovMat , std::vector< float > leptonCovMat , std::vector< float > visibleChargedCovMat , std::vector< float > visibleNeutralCovMat , double sigmaParentHadronMass );
+		double getSigmaVisibleMass( TLorentzVector visibleFourMomentum , std::vector< float > visibleCovMat );
+		double getSigmaVisiblePpar_prime( TVector3 flightDirection , TLorentzVector visibleFourMomentum , double parentHadronMass , std::vector< float > flightDirectionCovMat , std::vector< float > visibleCovMat , double sigmaParentHadronMass , double sigma_Mvis );
+		double getSigmaPvisPar( TVector3 flightDirection , TLorentzVector visibleFourMomentum , std::vector< float > flightDirectionCovMat , std::vector< float > visibleCovMat );
+		double getSigmaPvisNor( TVector3 visibleMomentum , double visibleMomentumPar , std::vector< float > visibleCovMat , double sigmaPvisPar );
+		double getTrueParentHadronMass( MCParticle *SLDLepton );
 		virtual void check( EVENT::LCEvent *pLCEvent );
 		virtual void end();
 
@@ -60,6 +70,8 @@ class SLDCorrection : public Processor
 		std::string				m_SLDNuCollection{};
 		std::string				m_rootFile{};
 
+		bool					m_cheatSLDLeptons = true;
+		bool					m_cheatFlightDirection = true;
 		bool					m_fillRootTree = true;
 
 		int					m_nRun;
