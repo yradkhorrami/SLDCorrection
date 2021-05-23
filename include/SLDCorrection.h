@@ -15,6 +15,7 @@
 #include <vector>
 #include "TLorentzVector.h"
 #include "TVector3.h"
+#include "TMatrixD.h"
 class TFile;
 class TDirectory;
 class TH1F;
@@ -54,6 +55,7 @@ class SLDCorrection : public Processor
 		double getSigmaVisiblePpar_prime( TVector3 flightDirection , TLorentzVector visibleFourMomentum , double parentHadronMass , std::vector< float > flightDirectionCovMat , std::vector< float > visibleCovMat , double sigmaParentHadronMass , double sigma_Mvis );
 		double getSigmaPvisPar( TVector3 flightDirection , TLorentzVector visibleFourMomentum , std::vector< float > flightDirectionCovMat , std::vector< float > visibleCovMat );
 		double getSigmaPvisNor( TVector3 visibleMomentum , double visibleMomentumPar , std::vector< float > visibleCovMat , double sigmaPvisPar );
+		std::vector<float> getParentHadronCovMat( TVector3 flightDirection , double parentHadronEnergy , double parentHadronMass , std::vector<float> flightDirectionCovMat , double parentHadronSigmaE );
 		double getTrueParentHadronMass( MCParticle *SLDLepton );
 		virtual void check( EVENT::LCEvent *pLCEvent );
 		virtual void end();

@@ -186,7 +186,7 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 			streamlog_out(DEBUG3) << "		Visible 4-Mom"  <<  std::endl;// 	( 	  Mass		, Px		, Py		, Pz		, E	)" << std::endl;
 			streamlog_out(DEBUG3) << "					  " << trueVisibleFourMomentum.Mag() << "	, " << trueVisibleFourMomentum.Px() << "	, " << trueVisibleFourMomentum.Py() << "	, " << trueVisibleFourMomentum.Pz() << "	, " << trueVisibleFourMomentum.E() << "	)" << std::endl;
 			TLorentzVector trueInvisibleFourMomentum = getTrueFourMomentumNeutrino( mcSLDLeptons.at( i_SLD ) );
-			streamlog_out(DEBUG3) << "		Inisible 4-Mom"  <<  std::endl;//	(	  Mass		, Px		, Py		, Pz		, E	)" << std::endl;
+			streamlog_out(DEBUG3) << "		Invisible 4-Mom"  <<  std::endl;//	(	  Mass		, Px		, Py		, Pz		, E	)" << std::endl;
 			streamlog_out(DEBUG3) << "					  " << trueInvisibleFourMomentum.Mag() << "	, " << trueInvisibleFourMomentum.Px() << "	, " << trueInvisibleFourMomentum.Py() << "	, " << trueInvisibleFourMomentum.Pz() << "	, " << trueInvisibleFourMomentum.E() << "	)" << std::endl;
 			TLorentzVector trueFourMomentum = trueVisibleFourMomentum + trueInvisibleFourMomentum + trueFourMomentumLepton;
 			streamlog_out(DEBUG3) << "		Total 4-Mom"  <<  std::endl;// 	( 	  Mass		, Px		, Py		, Pz		, E	)" << std::endl;
@@ -208,18 +208,32 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 			TLorentzVector visibleFourMomentumCharged = trueVisibleFourMomentumChargeds.at( i_SLD );
 			TLorentzVector visibleFourMomentumNeutral = trueVisibleFourMomentumNeutrals.at( i_SLD );
 			double parentHadronMass = trueParentHadronMasses.at( i_SLD );
+			TLorentzVector FourMomentumNuPos;
+			TLorentzVector FourMomentumNuNeg;
+			TLorentzVector FourMomentumNuClose;
 			streamlog_out(DEBUG4) << "" << std::endl;
 			streamlog_out(DEBUG4) << "" << std::endl;
 			streamlog_out(DEBUG4) << "	Calculate Neutrino 4-Momentum ( + solution )" << std::endl;
-			FourMomentumNeutrinosPos.push_back( getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 ) );
-			streamlog_out(DEBUG4) << "	True Neutrino 4-Momentum:		( " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Px() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Py() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Pz() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).E() << " )" << std::endl;
+			FourMomentumNuPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
+			FourMomentumNeutrinosPos.push_back( FourMomentumNuPos );
 			streamlog_out(DEBUG4) << "	----------------------------------------------------------------------------------------------------" << std::endl;
 			streamlog_out(DEBUG4) << "" << std::endl;
 			streamlog_out(DEBUG4) << "	Calculate Neutrino 4-Momentum ( - solution )" << std::endl;
-			FourMomentumNeutrinosNeg.push_back( getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 ) );
+			FourMomentumNuNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
+			FourMomentumNeutrinosNeg.push_back( FourMomentumNuNeg );
+			FourMomentumNuClose = ( abs( FourMomentumNuPos.E() - ( trueFourMomentumNeutrinos.at( i_SLD ) ).E() ) < abs( FourMomentumNuNeg.E() - ( trueFourMomentumNeutrinos.at( i_SLD ) ).E() ) ? FourMomentumNuPos : FourMomentumNuNeg );
+			FourMomentumNeutrinosClose.push_back( FourMomentumNuClose );
+			streamlog_out(DEBUG4) << "" << std::endl;
+			streamlog_out(DEBUG4) << "	Closest Neutrino 4-Momentum:		( " << FourMomentumNuClose.Px() << "	, " << FourMomentumNuClose.Py() << "	, " << FourMomentumNuClose.Pz() << "	, " << FourMomentumNuClose.E() << " )" << std::endl;
 			streamlog_out(DEBUG4) << "	True Neutrino 4-Momentum:		( " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Px() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Py() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).Pz() << "	, " << ( trueFourMomentumNeutrinos.at( i_SLD ) ).E() << " )" << std::endl;
 			streamlog_out(DEBUG4) << "	----------------------------------------------------------------------------------------------------" << std::endl;
 			NeutrinoCovMat = getNeutrinoCovMat( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , flightDirectionCovMat , LeptonCovMat , visibleChargedCovMat , visibleNeutralCovMat , sigmaParentHadronMass );
+			streamlog_out(DEBUG4) << "	Reconstructed Neutrino CovMat:" << std::endl;
+			streamlog_out(DEBUG4) << "						" << NeutrinoCovMat[ 0 ] << std::endl;
+			streamlog_out(DEBUG4) << "						" << NeutrinoCovMat[ 1 ] << "	, " << NeutrinoCovMat[ 2 ] << std::endl;
+			streamlog_out(DEBUG4) << "						" << NeutrinoCovMat[ 3 ] << "	, " << NeutrinoCovMat[ 4 ]  << "	, " << NeutrinoCovMat[ 5 ] << std::endl;
+			streamlog_out(DEBUG4) << "						" << NeutrinoCovMat[ 6 ] << "	, " << NeutrinoCovMat[ 7 ]  << "	, " << NeutrinoCovMat[ 8 ] << "	, " << NeutrinoCovMat[ 9 ]  << std::endl;
+			streamlog_out(DEBUG4) << "	----------------------------------------------------------------------------------------------------" << std::endl;
 		}
 
 		RecoJetCollection = pLCEvent->getCollection( m_inputJetCollection );
@@ -478,6 +492,7 @@ TLorentzVector SLDCorrection::getNeutrinoFourMomentum( TVector3 flightDirection 
 std::vector< float > SLDCorrection::getNeutrinoCovMat( TVector3 flightDirection , TLorentzVector fourMomentumLepton , TLorentzVector visibleFourMomentumCharged , TLorentzVector visibleFourMomentumNeutral , double parentHadronMass , std::vector< float > flightDirectionCovMat , std::vector< float > LeptonCovMat , std::vector< float > visibleChargedCovMat , std::vector< float > visibleNeutralCovMat , double sigmaParentHadronMass )
 {
 	std::vector< float > NeutrinoCovMat( 10 , 0.0 );
+	std::vector< float > ParentHadronCovMat( 10 , 0.0 );
 
 	TLorentzVector visibleFourMomentum = fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral;
 	double Mvis			= visibleFourMomentum.M();
@@ -487,6 +502,7 @@ std::vector< float > SLDCorrection::getNeutrinoCovMat( TVector3 flightDirection 
 	TVector3 visible_p_par		= visible_p.Dot( flightDirection ) * flightDirection;
 	TVector3 visible_p_nor		= visible_p - visible_p_par;
 	TVector3 visible_p_par_prime	= sqrt( pow( ( pow( parentHadronMass , 2 ) - pow( Mvis , 2 ) ) / ( 2 * parentHadronMass ) , 2 ) - visible_p_nor.Mag2() ) * flightDirection;
+	double parentHadronEnergy	= ( ( Evis * EvisPrime ) - visible_p_par.Dot( visible_p_par_prime ) ) * parentHadronMass / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
 	std::vector< float > visibleCovMat( 10 , 0.0 );
 	for ( int i_element = 0 ; i_element < 10 ; ++i_element )
 	{
@@ -500,20 +516,25 @@ std::vector< float > SLDCorrection::getNeutrinoCovMat( TVector3 flightDirection 
 	double sigmaPvisPar_prime	= getSigmaVisiblePpar_prime( flightDirection , visibleFourMomentum , parentHadronMass , flightDirectionCovMat , visibleCovMat , sigmaParentHadronMass , sigmaMvis );
 	double sigmaPvisNor		= getSigmaPvisNor( visible_p , visible_p_par.Mag() , visibleCovMat , sigmaPvisPar );
 
-	double dEnu_dEvis		= parentHadronMass * EvisPrime / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() ) - 1.0;
-	double dEnu_dEvisPrime		= parentHadronMass * Evis / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
-	double dEnu_dPvisPar		= -parentHadronMass * visible_p_par_prime.Mag() / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
-	double dEnu_dPvisParPrime	= -parentHadronMass * visible_p_par.Mag() / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
-	double dEnu_dPvisNor		= -2 * visible_p_nor.Mag() * parentHadronMass * ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / pow( pow( Mvis , 2 ) + visible_p_nor.Mag2() , 2 );
-	double dEnu_dMvis		= -2 * Mvis * parentHadronMass * ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / pow( pow( Mvis , 2 ) + visible_p_nor.Mag2() , 2 );
-	double dEnu_dMparentHadron	= ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
+	double dEparHad_dEvis			= parentHadronMass * EvisPrime / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
+	double dEparHad_dEvisPrime		= parentHadronMass * Evis / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
+	double dEparHad_dPvisPar		= -parentHadronMass * visible_p_par_prime.Mag() / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
+	double dEparHad_dPvisParPrime		= -parentHadronMass * visible_p_par.Mag() / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
+	double dEparHad_dPvisNor		= -2 * visible_p_nor.Mag() * parentHadronMass * ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / pow( pow( Mvis , 2 ) + visible_p_nor.Mag2() , 2 );
+	double dEparHad_dMvis			= -2 * Mvis * parentHadronMass * ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / pow( pow( Mvis , 2 ) + visible_p_nor.Mag2() , 2 );
+	double dEparHad_dMparentHadron		= ( Evis * EvisPrime - visible_p_par.Dot( visible_p_par_prime ) ) / ( pow( Mvis , 2 ) + visible_p_nor.Mag2() );
 
-	double sigmaEnu			= std::sqrt( 	pow( dEnu_dEvis , 2 ) * pow( sigmaEvis , 2 ) + pow( dEnu_dEvisPrime , 2 ) * pow( sigmaEvis_prime , 2 ) +
- 							pow( dEnu_dPvisPar , 2 ) * pow( sigmaPvisPar , 2 ) + pow( dEnu_dPvisParPrime , 2 ) * pow( sigmaPvisPar_prime , 2 ) +
-							pow( dEnu_dMvis , 2 ) * pow( sigmaMvis , 2 ) + pow( dEnu_dMparentHadron , 2 ) * pow( sigmaParentHadronMass , 2 ) +
-							pow( dEnu_dPvisNor , 2 ) * pow( sigmaPvisNor , 2 ) 	);
+	double sigmaEparHad			= std::sqrt( 	pow( dEparHad_dEvis , 2 ) * pow( sigmaEvis , 2 ) + pow( dEparHad_dEvisPrime , 2 ) * pow( sigmaEvis_prime , 2 ) +
+ 								pow( dEparHad_dPvisPar , 2 ) * pow( sigmaPvisPar , 2 ) + pow( dEparHad_dPvisParPrime , 2 ) * pow( sigmaPvisPar_prime , 2 ) +
+								pow( dEparHad_dMvis , 2 ) * pow( sigmaMvis , 2 ) + pow( dEparHad_dMparentHadron , 2 ) * pow( sigmaParentHadronMass , 2 ) +
+								pow( dEparHad_dPvisNor , 2 ) * pow( sigmaPvisNor , 2 ) 	);
+	ParentHadronCovMat		= getParentHadronCovMat( flightDirection , parentHadronEnergy , parentHadronMass , flightDirectionCovMat , sigmaEparHad );
 
-	NeutrinoCovMat[ 9 ] = sigmaEnu;
+	for ( int i_element = 0 ; i_element < 10 ; ++i_element )
+	{
+		NeutrinoCovMat[ i_element ] = ParentHadronCovMat[ i_element ] + visibleCovMat[ i_element ];
+	}
+
 	return NeutrinoCovMat;
 }
 
@@ -631,6 +652,80 @@ double SLDCorrection::getSigmaPvisNor( TVector3 visibleMomentum , double visible
 	double sigmaPvisNor		= std::sqrt(	pow( dPvisNor_dPx , 2 ) * sigmaPx2 + pow( dPvisNor_dPy , 2 ) * sigmaPy2 + pow( dPvisNor_dPz , 2 ) * sigmaPz2 + pow( dPvisNor_dPvisPar , 2 ) * pow( sigmaPvisPar , 2 ) +
 							2 * dPvisNor_dPx * dPvisNor_dPy * sigmaPxPy + 2 * dPvisNor_dPx * dPvisNor_dPz * sigmaPxPz + 2 * dPvisNor_dPy * dPvisNor_dPz * sigmaPyPz );
 	return sigmaPvisNor;
+}
+
+std::vector<float> SLDCorrection::getParentHadronCovMat( TVector3 flightDirection , double parentHadronEnergy , double parentHadronMass , std::vector<float> flightDirectionCovMat , double parentHadronSigmaE )
+{
+	const int rows			= 4; // n rows jacobian
+	const int columns		= 4; // n columns jacobian
+	const int kspace_time_dim	= 4;
+
+	TMatrixD covMatrixMomenta(kspace_time_dim,kspace_time_dim);
+	std::vector<float> covP;
+
+	float vertexX		=	flightDirection.X();
+	float vertexY		=	flightDirection.Y();
+	float vertexZ		=	flightDirection.Z();
+	float vertexR		=	std::sqrt( pow( vertexX , 2 ) + pow( vertexY , 2 ) + pow( vertexZ , 2 ) );
+	float vertexX2		=	pow( vertexX , 2 );
+	float vertexY2		=	pow( vertexY , 2 );
+	float vertexZ2		=	pow( vertexZ , 2 );
+	float vertexR2		=	pow( vertexR , 2 );
+	float vertexR3		=	pow( vertexR , 3 );
+	float SigmaX2		=	flightDirectionCovMat[ 0 ];
+	float SigmaXY		=	flightDirectionCovMat[ 1 ];
+	float SigmaY2		=	flightDirectionCovMat[ 2 ];
+	float SigmaXZ		=	flightDirectionCovMat[ 3 ];
+	float SigmaYZ		=	flightDirectionCovMat[ 4 ];
+	float SigmaZ2		=	flightDirectionCovMat[ 5 ];
+	float SigmaE2		=	pow( parentHadronSigmaE , 2 );
+
+	double parentHadronPmag	=	std::sqrt( pow( parentHadronEnergy , 2 ) - pow( parentHadronMass , 2 ) );
+
+//	Define array with jacobian matrix elements by rows
+	double jacobian_by_rows[rows*columns] =
+	{
+		parentHadronPmag * ( vertexR2 - vertexX2 ) / vertexR3		,	-parentHadronPmag * vertexX * vertexY / vertexR3		,	-parentHadronPmag * vertexX * vertexZ / vertexR3		,	0			,
+		-parentHadronPmag * vertexY * vertexX / vertexR3		,	parentHadronPmag * ( vertexR2 - vertexY2 ) / vertexR3		,	-parentHadronPmag * vertexY * vertexZ / vertexR3		,	0			,
+		-parentHadronPmag * vertexZ * vertexX / vertexR3		,	-parentHadronPmag * vertexZ * vertexY / vertexR3		,	parentHadronPmag * ( vertexR2 - vertexZ2 ) / vertexR3		,	0			,
+		parentHadronEnergy * vertexX / ( parentHadronPmag * vertexR )	,	parentHadronEnergy * vertexY / ( parentHadronPmag * vertexR )	,	parentHadronEnergy * vertexZ / ( parentHadronPmag * vertexR )	,	1.0
+	};
+
+//	construct the Jacobian using previous array ("F" if filling by columns, "C" if filling by rows, $ROOTSYS/math/matrix/src/TMatrixT.cxx)
+	TMatrixD jacobian(rows,columns, jacobian_by_rows, "C");
+	streamlog_out(DEBUG0) << "	Jacobian array converted to Jacobian matrix" << std::endl;
+
+//	cluster covariance matrix by rows
+	double parentHadron_CovMat_by_rows[rows*rows] =
+			{
+				SigmaX2		,	SigmaXY		,	SigmaXZ		,	0	,
+				SigmaXY		,	SigmaY2		,	SigmaYZ		,	0	,
+				SigmaXZ		,	SigmaYZ		,	SigmaZ2		,	0	,
+				0		,	0		,	0		,	SigmaE2
+			};
+
+	TMatrixD covMatrix_parentHadron(rows,rows, parentHadron_CovMat_by_rows, "C");
+
+	covMatrixMomenta.Mult( TMatrixD( jacobian ,
+					TMatrixD::kTransposeMult ,
+					covMatrix_parentHadron) ,
+					jacobian
+					);
+
+	covP.push_back( covMatrixMomenta(0,0) ); // x-x
+	covP.push_back( covMatrixMomenta(1,0) ); // y-x
+	covP.push_back( covMatrixMomenta(1,1) ); // y-y
+	covP.push_back( covMatrixMomenta(2,0) ); // z-x
+	covP.push_back( covMatrixMomenta(2,1) ); // z-y
+	covP.push_back( covMatrixMomenta(2,2) ); // z-z
+	covP.push_back( covMatrixMomenta(3,0) ); // e-x
+	covP.push_back( covMatrixMomenta(3,1) ); // e-y
+	covP.push_back( covMatrixMomenta(3,2) ); // e-z
+	covP.push_back( covMatrixMomenta(3,3) ); // e-e
+	streamlog_out(DEBUG0) << "	FourMomentumCovarianceMatrix for parent Hadron is Filled succesfully" << std::endl;
+
+	return covP;
+
 }
 
 void SLDCorrection::check( EVENT::LCEvent *pLCEvent )
