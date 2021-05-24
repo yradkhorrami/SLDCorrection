@@ -6,6 +6,7 @@
 #include <EVENT/MCParticle.h>
 #include <EVENT/Track.h>
 #include "IMPL/LCCollectionVec.h"
+#include "UTIL/LCRelationNavigator.h"
 #include <IMPL/ReconstructedParticleImpl.h>
 #include "lcio.h"
 #include <string>
@@ -57,6 +58,10 @@ class SLDCorrection : public Processor
 		double getSigmaPvisNor( TVector3 visibleMomentum , double visibleMomentumPar , std::vector< float > visibleCovMat , double sigmaPvisPar );
 		std::vector<float> getParentHadronCovMat( TVector3 flightDirection , double parentHadronEnergy , double parentHadronMass , std::vector<float> flightDirectionCovMat , double parentHadronSigmaE );
 		double getTrueParentHadronMass( MCParticle *SLDLepton );
+		ReconstructedParticle* getLinkedRecoLepton( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
+		virtual void plotHistograms( TLorentzVector trueFourMomentumNeutrino , TLorentzVector FourMomentumNuClose , std::vector<float> NeutrinoCovMat );
+		virtual void InitializeHistogram( TH1F *histogram , int scale , int color , int lineWidth , int markerSize , int markerStyle );
+		virtual void doProperGaussianFit( TH1F *histogram , float fitMin , float fitMax , float fitRange );
 		virtual void check( EVENT::LCEvent *pLCEvent );
 		virtual void end();
 
@@ -69,17 +74,52 @@ class SLDCorrection : public Processor
 		std::string				m_mcParticleCollection{};
 		std::string				m_inputPfoCollection{};
 		std::string				m_inputJetCollection{};
+		std::string				m_TrackMCTruthLinkCollection{};
+		std::string				m_MCTruthTrackLinkCollection{};
+		std::string				m_ClusterMCTruthLinkCollection{};
+		std::string				m_MCTruthClusterLinkCollection{};
 		std::string				m_SLDNuCollection{};
 		std::string				m_rootFile{};
 
 		bool					m_cheatSLDLeptons = true;
 		bool					m_cheatFlightDirection = true;
+		bool					m_cheatLepton4momentum = true;
 		bool					m_fillRootTree = true;
 
 		int					m_nRun;
 		int					m_nEvt;
 		int					m_nRunSum;
 		int					m_nEvtSum;
+		int					n_NuPxResidual;
+		int					n_NuPyResidual;
+		int					n_NuPzResidual;
+		int					n_NuEResidual;
+		int					n_NuPxNormalizedResidual;
+		int					n_NuPyNormalizedResidual;
+		int					n_NuPzNormalizedResidual;
+		int					n_NuENormalizedResidual;
+		DoubleVector				m_NuPxResidual{};
+		DoubleVector				m_NuPyResidual{};
+		DoubleVector				m_NuPzResidual{};
+		DoubleVector				m_NuEResidual{};
+		DoubleVector				m_NuPxNormalizedResidual{};
+		DoubleVector				m_NuPyNormalizedResidual{};
+		DoubleVector				m_NuPzNormalizedResidual{};
+		DoubleVector				m_NuENormalizedResidual{};
+		TH1F					*h_NuPxResidual{};
+		TH1F					*h_NuPyResidual{};
+		TH1F					*h_NuPzResidual{};
+		TH1F					*h_NuEResidual{};
+		TH1F					*h_NuPxNormalizedResidual{};
+		TH1F					*h_NuPyNormalizedResidual{};
+		TH1F					*h_NuPzNormalizedResidual{};
+		TH1F					*h_NuENormalizedResidual{};
+		TH2F					*h_recoNuPx_mcNuPx{};
+		TH2F					*h_recoNuPy_mcNuPy{};
+		TH2F					*h_recoNuPz_mcNuPz{};
+		TH2F					*h_recoNuE_mcNuE{};
+		TH1I					*h_recoPFOLinkedToElectron_Type{};
+		TH1I					*h_recoPFOLinkedToMuon_Type{};
 		TFile					*m_pTFile{};
 		TTree					*m_pTTree{};
 
