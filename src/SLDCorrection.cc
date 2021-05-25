@@ -289,22 +289,25 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 			recoLeptonsCovMat.push_back( recoLeptonCovMat );
 			foundLinkedRecoLeptons.push_back( foundLinkedRecoLepton );
 
-			trueFourMomentumLeptons.push_back( TLorentzVector( ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 0 ] , ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 1 ] , ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 2 ] , ( mcSLDLeptons.at( i_SLD ) )->getEnergy() ) );
+			TVector3 trueFlightDirection = getTrueFlightDirection( mcSLDLeptons.at( i_SLD ) );
+			trueFlightDirections.push_back( trueFlightDirection );
 			TLorentzVector trueFourMomentumLepton = TLorentzVector( ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 0 ] , ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 1 ] , ( mcSLDLeptons.at( i_SLD ) )->getMomentum()[ 2 ] , ( mcSLDLeptons.at( i_SLD ) )->getEnergy() );
-			trueFlightDirections.push_back( getTrueFlightDirection( mcSLDLeptons.at( i_SLD ) ) );
-			trueVisibleFourMomentumChargeds.push_back( getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , true , false ) );
-			trueVisibleFourMomentumNeutrals.push_back( getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , false , true ) );
-			trueFourMomentumNeutrinos.push_back( getTrueFourMomentumNeutrino( mcSLDLeptons.at( i_SLD ) ) );
-			TLorentzVector trueVisibleFourMomentum = getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , true , false ) + getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , false , true );
+			trueFourMomentumLeptons.push_back( trueFourMomentumLepton );
+			TLorentzVector trueVisibleFourMomentumCharged = getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , true , false );
+			trueVisibleFourMomentumChargeds.push_back( trueVisibleFourMomentumCharged );
+			TLorentzVector trueVisibleFourMomentumNeutral = getTrueVisibleFourMomentum( mcSLDLeptons.at( i_SLD ) , false , true );
+			trueVisibleFourMomentumNeutrals.push_back( trueVisibleFourMomentumNeutral );
+			TLorentzVector trueFourMomentumNeutrino = getTrueFourMomentumNeutrino( mcSLDLeptons.at( i_SLD ) );
+			trueFourMomentumNeutrinos.push_back( trueFourMomentumNeutrino );
+			TLorentzVector trueVisibleFourMomentum = trueFourMomentumLepton + trueVisibleFourMomentumCharged + trueVisibleFourMomentumNeutral;
 			streamlog_out(DEBUG3) << "		              ( PDG	, Mass		, Px		, Py		, Pz		, E		)" << std::endl;
 			streamlog_out(DEBUG3) << "		Lepton 4-Mom"  <<  std::endl;
 			streamlog_out(DEBUG3) << "				" << ( mcSLDLeptons.at( i_SLD ) )->getPDG() << "	  " << trueFourMomentumLepton.Mag() << "	, " << trueFourMomentumLepton.Px() << "	, " << trueFourMomentumLepton.Py() << "	, " << trueFourMomentumLepton.Pz() << "	, " << trueFourMomentumLepton.E() << "	)" << std::endl;
 			streamlog_out(DEBUG3) << "		Visible 4-Mom"  <<  std::endl;
 			streamlog_out(DEBUG3) << "					  " << trueVisibleFourMomentum.Mag() << "	, " << trueVisibleFourMomentum.Px() << "	, " << trueVisibleFourMomentum.Py() << "	, " << trueVisibleFourMomentum.Pz() << "	, " << trueVisibleFourMomentum.E() << "	)" << std::endl;
-			TLorentzVector trueInvisibleFourMomentum = getTrueFourMomentumNeutrino( mcSLDLeptons.at( i_SLD ) );
 			streamlog_out(DEBUG3) << "		Invisible 4-Mom"  <<  std::endl;
-			streamlog_out(DEBUG3) << "					  " << trueInvisibleFourMomentum.Mag() << "	, " << trueInvisibleFourMomentum.Px() << "	, " << trueInvisibleFourMomentum.Py() << "	, " << trueInvisibleFourMomentum.Pz() << "	, " << trueInvisibleFourMomentum.E() << "	)" << std::endl;
-			TLorentzVector trueFourMomentum = trueVisibleFourMomentum + trueInvisibleFourMomentum + trueFourMomentumLepton;
+			streamlog_out(DEBUG3) << "					  " << trueFourMomentumNeutrino.Mag() << "	, " << trueFourMomentumNeutrino.Px() << "	, " << trueFourMomentumNeutrino.Py() << "	, " << trueFourMomentumNeutrino.Pz() << "	, " << trueFourMomentumNeutrino.E() << "	)" << std::endl;
+			TLorentzVector trueFourMomentum = trueVisibleFourMomentum + trueFourMomentumNeutrino;
 			streamlog_out(DEBUG3) << "		Total 4-Mom"  <<  std::endl;
 			streamlog_out(DEBUG3) << "					  " << trueFourMomentum.Mag() << "	, " << trueFourMomentum.Px() << "	, " << trueFourMomentum.Py() << "	, " << trueFourMomentum.Pz() << "	, " << trueFourMomentum.E() << "	)" << std::endl;
 			trueParentHadronMasses.push_back( getTrueParentHadronMass( mcSLDLeptons.at( i_SLD ) ) );
@@ -322,11 +325,11 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 			TLorentzVector fourMomentumLepton;// = trueFourMomentumLeptons.at( i_SLD );
 			if ( m_cheatLepton4momentum || !foundLinkedRecoLeptons.at( i_SLD ) )
 			{
-				fourMomentumLepton = recoFourMomentumLeptons.at( i_SLD );
+				fourMomentumLepton = trueFourMomentumLeptons.at( i_SLD );
 			}
 			else
 			{
-				fourMomentumLepton = trueFourMomentumLeptons.at( i_SLD );
+				fourMomentumLepton = recoFourMomentumLeptons.at( i_SLD );
 				LeptonCovMat = recoLeptonsCovMat.at( i_SLD );
 			}
 
@@ -572,6 +575,9 @@ TLorentzVector SLDCorrection::getNeutrinoFourMomentum( TVector3 flightDirection 
 
 	TLorentzVector visible_tlv	= VisibleFourMomentumCharged + VisibleFourMomentumNeutral + FourMomentumLepton;
 	streamlog_out(DEBUG1) << "		Visible 4-Momentum:		( " << visible_tlv.Px() << "	, " << visible_tlv.Py() << "	, " << visible_tlv.Pz() << "	, " << visible_tlv.E() << " )" << std::endl;
+	streamlog_out(DEBUG1) << "				Lepton		( " << FourMomentumLepton.Px() << "	, " << FourMomentumLepton.Py() << "	, " << FourMomentumLepton.Pz() << "	, " << FourMomentumLepton.E() << " )" << std::endl;
+	streamlog_out(DEBUG1) << "				Charged	( " << VisibleFourMomentumCharged.Px() << "	, " << VisibleFourMomentumCharged.Py() << "	, " << VisibleFourMomentumCharged.Pz() << "	, " << VisibleFourMomentumCharged.E() << " )" << std::endl;
+	streamlog_out(DEBUG1) << "				Neutral	( " << VisibleFourMomentumNeutral.Px() << "	, " << VisibleFourMomentumNeutral.Py() << "	, " << VisibleFourMomentumNeutral.Pz() << "	, " << VisibleFourMomentumNeutral.E() << " )" << std::endl;
 
 	double visible_mass		= visible_tlv.Mag();
 	streamlog_out(DEBUG1) << "		Visible Invariant Mass:	" << visible_mass << std::endl;
@@ -1103,6 +1109,8 @@ void SLDCorrection::end()
 		h_recoNuE_mcNuE->Write();
 		h_recoPFOLinkedToElectron_Type->Write();
 		h_recoPFOLinkedToMuon_Type->Write();
+		m_pTFile->Close();
+		delete m_pTFile;
 	}
 
 	streamlog_out(MESSAGE) << " " << std::endl;
