@@ -48,11 +48,16 @@ class SLDCorrection : public Processor
 		bool hasPrimarySLDecay( MCParticle *parentHadron );
 		bool hasSecondaySLDecay( MCParticle *parentHadron );
 		virtual void doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
-		TVector3 getFlightDirection( MCParticle *SLDLepton );
+		TVector3 cheatFlightDirection( MCParticle *SLDLepton );
 		double getParentHadronMass( MCParticle *SLDLepton );
 		TLorentzVector getLeptonFourMomentum( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		TLorentzVector getVisibleFourMomentum( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton , MCParticle *parentHadron , bool getChargedTLV , bool getNeutralTLV );
 		TLorentzVector getTrueNeutrinoFourMomentum( MCParticle *SLDLepton );
+		ReconstructedParticle* getLinkedPFO( EVENT::LCEvent *pLCEvent , MCParticle *MCParticle , bool getChargedTLV , bool getNeutralTLV );
+		TVector3 getFlightDirection( TLorentzVector parentFourMomentum , std::vector< double > primaryVertex , std::vector< double > secondaryVertex , int parentCharge );
+		std::vector< double > getPrimaryVertex( MCParticle *SLDLepton );
+		std::vector< double > getSecondaryVertex( MCParticle *SLDLepton );
+		int getParentCharge( MCParticle *SLDLepton );
 
 		TLorentzVector getParentHadron4mom( MCParticle *SLDLepton );
 		TLorentzVector getDaughters4mom( MCParticle *SLDLepton );
@@ -70,7 +75,9 @@ class SLDCorrection : public Processor
 		double getSigmaPvisPar( TVector3 flightDirection , TLorentzVector visibleFourMomentum , std::vector< float > flightDirectionCovMat , std::vector< float > visibleCovMat );
 		double getSigmaPvisNor( TVector3 visibleMomentum , double visibleMomentumPar , std::vector< float > visibleCovMat , double sigmaPvisPar );
 		std::vector<float> getParentHadronCovMat( TVector3 flightDirection , double parentHadronEnergy , double parentHadronMass , std::vector<float> flightDirectionCovMat , double parentHadronSigmaE );
-		ReconstructedParticle* getLinkedChargedPFO( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
+		ReconstructedParticle* getLinkedChargedPFO( EVENT::LCEvent *pLCEvent , MCParticle *chargedMCP );
+		ReconstructedParticleImpl* getLinkedTrack4MomOfPFO( EVENT::LCEvent *pLCEvent , MCParticle *chargedMCP );
+		TLorentzVector getTrackFourMomentum( EVENT::Track* inputTrk , double trackMass );
 		virtual void plotHistograms( TLorentzVector trueFourMomentumNeutrino , TLorentzVector FourMomentumNuClose , std::vector<float> NeutrinoCovMat );
 		virtual void InitializeHistogram( TH1F *histogram , int scale , int color , int lineWidth , int markerSize , int markerStyle );
 		virtual void doProperGaussianFit( TH1F *histogram , float fitMin , float fitMax , float fitRange );
@@ -86,6 +93,8 @@ class SLDCorrection : public Processor
 		std::string				m_mcParticleCollection{};
 		std::string				m_inputPfoCollection{};
 		std::string				m_inputJetCollection{};
+		std::string				m_RecoMCTruthLinkCollection{};
+		std::string				m_MCTruthRecoLinkCollection{};
 		std::string				m_TrackMCTruthLinkCollection{};
 		std::string				m_MCTruthTrackLinkCollection{};
 		std::string				m_ClusterMCTruthLinkCollection{};
@@ -95,20 +104,31 @@ class SLDCorrection : public Processor
 
 		bool					m_cheatSLDLeptons = true;
 		bool					m_cheatFlightDirection = true;
+		bool					m_considerParentCharge = true;
 		bool					m_cheatLepton4momentum = true;
 		bool					m_cheatCharged4momentum = true;
 		bool					m_cheatNeutral4momentum = true;
+		int					m_recoFourMomentumOfVisibles = 0;
 		bool					m_fillRootTree = true;
 
 		int					m_nRun;
 		int					m_nEvt;
 		int					m_nRunSum;
 		int					m_nEvtSum;
+		double					m_Bfield;
+		double					c;
+		double					mm2m;
+		double					eV2GeV;
+		double					eB;
 		int					m_nTauSLDecay;
 		int					m_nNeutrino;
 		int					m_nChargedPFOwoTrack;
 		IntVector				m_nSLD_chargedMCPwoTrack{};
 		IntVector				m_GenStatParentHadron{};
+		IntVector				m_ChargeParentHadron{};
+		DoubleVector				m_lostChargedMCP_CosTheta{};
+		DoubleVector				m_lostChargedMCP_Energy{};
+		DoubleVector				m_lostChargedMCP_Pt{};
 		int					n_NuPxResidual;
 		int					n_NuPyResidual;
 		int					n_NuPzResidual;
@@ -125,6 +145,22 @@ class SLDCorrection : public Processor
 		DoubleVector				m_CSLDecayY{};
 		DoubleVector				m_CSLDecayZ{};
 		DoubleVector				m_CSLDecayR{};
+		DoubleVector				m_trueNuPx{};
+		DoubleVector				m_trueNuPy{};
+		DoubleVector				m_trueNuPz{};
+		DoubleVector				m_trueNuE{};
+		DoubleVector				m_recoNuClosePx{};
+		DoubleVector				m_recoNuClosePy{};
+		DoubleVector				m_recoNuClosePz{};
+		DoubleVector				m_recoNuCloseE{};
+		DoubleVector				m_recoNuPosPx{};
+		DoubleVector				m_recoNuPosPy{};
+		DoubleVector				m_recoNuPosPz{};
+		DoubleVector				m_recoNuPosE{};
+		DoubleVector				m_recoNuNegPx{};
+		DoubleVector				m_recoNuNegPy{};
+		DoubleVector				m_recoNuNegPz{};
+		DoubleVector				m_recoNuNegE{};
 		DoubleVector				m_NuPxResidual{};
 		DoubleVector				m_NuPyResidual{};
 		DoubleVector				m_NuPzResidual{};
@@ -152,6 +188,9 @@ class SLDCorrection : public Processor
 		TH1I					*h_recoPFOLinkedToElectron_Type{};
 		TH1I					*h_recoPFOLinkedToMuon_Type{};
 		TH1I					*h_SLDecayOrder{};
+		TH1I					*h_MCPTracks{};
+		TH1I					*h_MCPTracks_Eweighted{};
+		TH1I					*h_MCPTracks_Ptweighted{};
 		TFile					*m_pTFile{};
 		TTree					*m_pTTree{};
 
