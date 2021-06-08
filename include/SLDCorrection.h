@@ -46,7 +46,11 @@ class SLDCorrection : public Processor
 		virtual void processRunHeader();
 		virtual void processEvent( EVENT::LCEvent *pLCEvent );
 		bool hasPrimarySLDecay( MCParticle *parentHadron );
-		bool hasSecondaySLDecay( MCParticle *parentHadron );
+		bool hasDownStreamSLDecay( MCParticle *parentHadron );
+		bool hasUpStreamSLDecay( MCParticle *parentHadron );
+		bool checkBHadronSLDecay( MCParticle *SLDLepton );
+		bool checkCHadronSLDecay( MCParticle *SLDLepton );
+		bool checkTauLeptonSLDecay( MCParticle *SLDLepton );
 		virtual void doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		TVector3 cheatFlightDirection( MCParticle *SLDLepton );
 		double getParentHadronMass( MCParticle *SLDLepton );
@@ -55,8 +59,8 @@ class SLDCorrection : public Processor
 		TLorentzVector getTrueNeutrinoFourMomentum( MCParticle *SLDLepton );
 		ReconstructedParticle* getLinkedPFO( EVENT::LCEvent *pLCEvent , MCParticle *MCParticle , bool getChargedTLV , bool getNeutralTLV );
 		TVector3 getFlightDirection( TLorentzVector parentFourMomentum , std::vector< double > primaryVertex , std::vector< double > secondaryVertex , int parentCharge );
-		std::vector< double > getPrimaryVertex( MCParticle *SLDLepton );
-		std::vector< double > getSecondaryVertex( MCParticle *SLDLepton );
+		std::vector< double > getPrimaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
+		std::vector< double > getSecondaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		int getParentCharge( MCParticle *SLDLepton );
 
 		TLorentzVector getParentHadron4mom( MCParticle *SLDLepton );
@@ -93,6 +97,8 @@ class SLDCorrection : public Processor
 		std::string				m_mcParticleCollection{};
 		std::string				m_inputPfoCollection{};
 		std::string				m_inputJetCollection{};
+		std::string				m_inputPrimaryVertex{};
+		std::string				m_inputBuildUpVertex{};
 		std::string				m_RecoMCTruthLinkCollection{};
 		std::string				m_MCTruthRecoLinkCollection{};
 		std::string				m_TrackMCTruthLinkCollection{};
@@ -102,9 +108,13 @@ class SLDCorrection : public Processor
 		std::string				m_SLDNuCollection{};
 		std::string				m_rootFile{};
 
+		bool					m_includeBSLD = true;
+		bool					m_includeCSLD = true;
+		bool					m_includeTSLD = true;
 		bool					m_cheatSLDLeptons = true;
 		bool					m_cheatFlightDirection = true;
 		bool					m_considerParentCharge = true;
+		bool					m_cheatVertices = true;
 		bool					m_cheatLepton4momentum = true;
 		bool					m_cheatCharged4momentum = true;
 		bool					m_cheatNeutral4momentum = true;
@@ -149,6 +159,10 @@ class SLDCorrection : public Processor
 		DoubleVector				m_trueNuPy{};
 		DoubleVector				m_trueNuPz{};
 		DoubleVector				m_trueNuE{};
+		DoubleVector				m_recoNuCloseInitialPx{};
+		DoubleVector				m_recoNuCloseInitialPy{};
+		DoubleVector				m_recoNuCloseInitialPz{};
+		DoubleVector				m_recoNuCloseInitialE{};
 		DoubleVector				m_recoNuClosePx{};
 		DoubleVector				m_recoNuClosePy{};
 		DoubleVector				m_recoNuClosePz{};
@@ -188,6 +202,8 @@ class SLDCorrection : public Processor
 		TH1I					*h_recoPFOLinkedToElectron_Type{};
 		TH1I					*h_recoPFOLinkedToMuon_Type{};
 		TH1I					*h_SLDecayOrder{};
+		TH2I					*h_foundVertex{};
+		TH1I					*h_parentHadronCharge{};
 		TH1I					*h_MCPTracks{};
 		TH1I					*h_MCPTracks_Eweighted{};
 		TH1I					*h_MCPTracks_Ptweighted{};
