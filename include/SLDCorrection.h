@@ -97,6 +97,7 @@ class SLDCorrection : public Processor
 		std::string				m_mcParticleCollection{};
 		std::string				m_inputPfoCollection{};
 		std::string				m_inputJetCollection{};
+		std::string				m_jetFlavour{};
 		std::string				m_inputPrimaryVertex{};
 		std::string				m_inputBuildUpVertex{};
 		std::string				m_RecoMCTruthLinkCollection{};
@@ -108,6 +109,10 @@ class SLDCorrection : public Processor
 		std::string				m_SLDNuCollection{};
 		std::string				m_rootFile{};
 
+		bool					m_includbJets = true;
+		bool					m_includcJets = true;
+		bool					m_includgJets = true;
+		bool					m_includOthers = true;
 		bool					m_includeBSLD = true;
 		bool					m_includeCSLD = true;
 		bool					m_includeTSLD = true;
@@ -118,6 +123,7 @@ class SLDCorrection : public Processor
 		bool					m_cheatLepton4momentum = true;
 		bool					m_cheatCharged4momentum = true;
 		bool					m_cheatNeutral4momentum = true;
+		int					m_nIterFlightDirCorrection = 0;
 		int					m_recoFourMomentumOfVisibles = 0;
 		bool					m_fillRootTree = true;
 
@@ -131,11 +137,17 @@ class SLDCorrection : public Processor
 		double					eV2GeV;
 		double					eB;
 		int					m_nTauSLDecay;
+		int					m_nTauNeutrino;
 		int					m_nNeutrino;
 		int					m_nChargedPFOwoTrack;
+		IntVector				m_jetFlavourPDG{};
 		IntVector				m_nSLD_chargedMCPwoTrack{};
 		IntVector				m_GenStatParentHadron{};
 		IntVector				m_ChargeParentHadron{};
+		IntVector				m_foundRecoLepton{};
+		IntVector				m_foundBuildUpVertex{};
+		IntVector				m_foundRecoLeptonInBuildUpVertex{};
+		IntVector				m_foundRecoLeptonInPrimaryVertex{};
 		DoubleVector				m_lostChargedMCP_CosTheta{};
 		DoubleVector				m_lostChargedMCP_Energy{};
 		DoubleVector				m_lostChargedMCP_Pt{};
@@ -147,14 +159,14 @@ class SLDCorrection : public Processor
 		int					n_NuPyNormalizedResidual;
 		int					n_NuPzNormalizedResidual;
 		int					n_NuENormalizedResidual;
-		DoubleVector				m_BSLDecayX{};
-		DoubleVector				m_BSLDecayY{};
-		DoubleVector				m_BSLDecayZ{};
-		DoubleVector				m_BSLDecayR{};
-		DoubleVector				m_CSLDecayX{};
-		DoubleVector				m_CSLDecayY{};
-		DoubleVector				m_CSLDecayZ{};
-		DoubleVector				m_CSLDecayR{};
+		DoubleVector				m_SLDecayXi{};
+		DoubleVector				m_SLDecayYi{};
+		DoubleVector				m_SLDecayZi{};
+		DoubleVector				m_SLDecayRi{};
+		DoubleVector				m_SLDecayXf{};
+		DoubleVector				m_SLDecayYf{};
+		DoubleVector				m_SLDecayZf{};
+		DoubleVector				m_SLDecayRf{};
 		DoubleVector				m_trueNuPx{};
 		DoubleVector				m_trueNuPy{};
 		DoubleVector				m_trueNuPz{};
@@ -203,6 +215,7 @@ class SLDCorrection : public Processor
 		TH1I					*h_recoPFOLinkedToMuon_Type{};
 		TH1I					*h_SLDecayOrder{};
 		TH2I					*h_foundVertex{};
+		TH1I					*h_secondaryVertex{};
 		TH1I					*h_parentHadronCharge{};
 		TH1I					*h_MCPTracks{};
 		TH1I					*h_MCPTracks_Eweighted{};

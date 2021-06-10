@@ -46,6 +46,7 @@ SLDCorrection::SLDCorrection() :
 	eV2GeV(0.),
 	eB(0.),
 	m_nTauSLDecay(0),
+	m_nTauNeutrino(0),
 	m_nNeutrino(0),
 	m_nChargedPFOwoTrack(0),
 	n_NuPxResidual(0),
@@ -78,6 +79,13 @@ SLDCorrection::SLDCorrection() :
 					"Name of input jet collection",
 					m_inputJetCollection,
 					std::string("Durham_nJets")
+				);
+
+	registerInputCollection(	LCIO::MCPARTICLE,
+					"jetFlavour" ,
+					"Name of input Jet Flavour collection",
+					m_jetFlavour ,
+					std::string("jetFlavour")
 				);
 
 	registerInputCollection(	LCIO::VERTEX,
@@ -143,6 +151,30 @@ SLDCorrection::SLDCorrection() :
 					std::string("SLDNeutrinoCollection")
 				);
 
+	registerProcessorParameter(	"includbJets",
+					"Include b-jets for semi-decay correction",
+					m_includbJets,
+					bool(false)
+				);
+
+	registerProcessorParameter(	"includcJets",
+					"Include c-jets for semi-decay correction",
+					m_includcJets,
+					bool(false)
+				);
+
+	registerProcessorParameter(	"includgJets",
+					"Include g-jets for semi-decay correction",
+					m_includgJets,
+					bool(false)
+				);
+
+	registerProcessorParameter(	"includOthers",
+					"Include Other final states for semi-decay correction",
+					m_includOthers,
+					bool(false)
+				);
+
 	registerProcessorParameter(	"includeBSLD",
 					"do correction for semi-leptonic decays of B-Hadrons",
 					m_includeBSLD,
@@ -203,6 +235,12 @@ SLDCorrection::SLDCorrection() :
 					bool(true)
 				);
 
+	registerProcessorParameter(	"nIterFlightDirCorrection",
+					"Number of iterations for correcting flight direction of CHARGED parent hadron",
+					m_nIterFlightDirCorrection,
+					int(1)
+				);
+
 	registerProcessorParameter(	"recoFourMomentumOfVisibles",
 					"0: get 4p from linked track/cluster to MCP, 1: get 4p from PFO with linked track/cluster, 2: get 4p from linked PFO",
 					m_recoFourMomentumOfVisibles,
@@ -237,21 +275,27 @@ void SLDCorrection::init()
 	m_pTTree->SetDirectory(m_pTFile);
 	m_pTTree->Branch("event", &m_nEvt, "event/I");
 	m_pTTree->Branch("nTauSLDecay",&m_nTauSLDecay,"nTauSLDecay/I");
+	m_pTTree->Branch("nTauNeutrino",&m_nTauNeutrino,"nTauNeutrino/I");
 	m_pTTree->Branch("nNeutrino",&m_nNeutrino,"nNeutrino/I");
+	m_pTTree->Branch("jetFlavourPDG",&m_jetFlavourPDG);
 	m_pTTree->Branch("nSLD_chargedMCPwoTrack",&m_nSLD_chargedMCPwoTrack);
 	m_pTTree->Branch("GenStatParentHadron",&m_GenStatParentHadron);
 	m_pTTree->Branch("ChargeParentHadron",&m_ChargeParentHadron);
+	m_pTTree->Branch("foundRecoLepton",&m_foundRecoLepton);
+	m_pTTree->Branch("foundBuildUpVertex",&m_foundBuildUpVertex);
+	m_pTTree->Branch("foundRecoLeptonInBuildUpVertex",&m_foundRecoLeptonInBuildUpVertex);
+	m_pTTree->Branch("foundRecoLeptonInPrimaryVertex",&m_foundRecoLeptonInPrimaryVertex);
 	m_pTTree->Branch("lostChargedMCP_CosTheta",&m_lostChargedMCP_CosTheta);
 	m_pTTree->Branch("lostChargedMCP_Energy",&m_lostChargedMCP_Energy);
 	m_pTTree->Branch("lostChargedMCP_Pt",&m_lostChargedMCP_Pt);
-	m_pTTree->Branch("BSLDecayX", &m_BSLDecayX);
-	m_pTTree->Branch("BSLDecayY", &m_BSLDecayY);
-	m_pTTree->Branch("BSLDecayZ", &m_BSLDecayZ);
-	m_pTTree->Branch("BSLDecayR", &m_BSLDecayR);
-	m_pTTree->Branch("CSLDecayX", &m_CSLDecayX);
-	m_pTTree->Branch("CSLDecayY", &m_CSLDecayY);
-	m_pTTree->Branch("CSLDecayZ", &m_CSLDecayZ);
-	m_pTTree->Branch("CSLDecayR", &m_CSLDecayR);
+	m_pTTree->Branch("SLDecayXi", &m_SLDecayXi);
+	m_pTTree->Branch("SLDecayYi", &m_SLDecayYi);
+	m_pTTree->Branch("SLDecayZi", &m_SLDecayZi);
+	m_pTTree->Branch("SLDecayRi", &m_SLDecayRi);
+	m_pTTree->Branch("SLDecayXf", &m_SLDecayXf);
+	m_pTTree->Branch("SLDecayYf", &m_SLDecayYf);
+	m_pTTree->Branch("SLDecayZf", &m_SLDecayZf);
+	m_pTTree->Branch("SLDecayRf", &m_SLDecayRf);
 	m_pTTree->Branch("trueNuPx", &m_trueNuPx);
 	m_pTTree->Branch("trueNuPy", &m_trueNuPy);
 	m_pTTree->Branch("trueNuPz", &m_trueNuPz);
@@ -323,6 +367,12 @@ void SLDCorrection::init()
 	h_foundVertex->GetXaxis()->SetBinLabel(2,"vertex found");
 	h_foundVertex->GetYaxis()->SetBinLabel(1,"vertex not found");
 	h_foundVertex->GetYaxis()->SetBinLabel(2,"vertex found");
+	h_secondaryVertex = new TH1I( "secondary vertices" , ";" , 5 , 0 , 5 );
+	h_secondaryVertex->GetXaxis()->SetBinLabel(1,"lep found in BUp vtx");
+	h_secondaryVertex->GetXaxis()->SetBinLabel(2,"lep found in Prim vtx");
+	h_secondaryVertex->GetXaxis()->SetBinLabel(3,"lep not found in vtcs");
+	h_secondaryVertex->GetXaxis()->SetBinLabel(4,"not found reco lep");
+	h_secondaryVertex->GetXaxis()->SetBinLabel(5,"other(?)");
 	h_parentHadronCharge = new TH1I( "parentHadronCharge" , "; Parent Hadron Charge" , 5 , 0 , 5 );
 	h_parentHadronCharge->GetXaxis()->SetBinLabel(1,"-2");
 	h_parentHadronCharge->GetXaxis()->SetBinLabel(2,"-1");
@@ -342,23 +392,29 @@ void SLDCorrection::init()
 
 void SLDCorrection::Clear()
 {
+	m_jetFlavourPDG.clear();	//4: c-jet, 5: b-jet, 21: g-jet, 0:Other
 	m_nSLD_chargedMCPwoTrack.clear();
 	m_GenStatParentHadron.clear();
 	m_ChargeParentHadron.clear();
+	m_foundRecoLepton.clear();
+	m_foundBuildUpVertex.clear();
+	m_foundRecoLeptonInBuildUpVertex.clear();
+	m_foundRecoLeptonInPrimaryVertex.clear();
 	m_lostChargedMCP_CosTheta.clear();
 	m_lostChargedMCP_Energy.clear();
 	m_lostChargedMCP_Pt.clear();
 	m_nTauSLDecay = 0;
+	m_nTauNeutrino = 0;
 	m_nNeutrino = 0;
 	m_nChargedPFOwoTrack = 0;
-	m_BSLDecayX.clear();
-	m_BSLDecayY.clear();
-	m_BSLDecayZ.clear();
-	m_BSLDecayR.clear();
-	m_CSLDecayX.clear();
-	m_CSLDecayY.clear();
-	m_CSLDecayZ.clear();
-	m_CSLDecayR.clear();
+	m_SLDecayXi.clear();
+	m_SLDecayYi.clear();
+	m_SLDecayZi.clear();
+	m_SLDecayRi.clear();
+	m_SLDecayXf.clear();
+	m_SLDecayYf.clear();
+	m_SLDecayZf.clear();
+	m_SLDecayRf.clear();
 	m_trueNuPx.clear();
 	m_trueNuPy.clear();
 	m_trueNuPz.clear();
@@ -403,6 +459,13 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 	m_nEvt = pLCEvent->getEventNumber();
 //	LCCollection *RecoJetCollection{};
 	LCCollection *MCParticleCollection{};
+	LCCollection *jetFlacourCollection{};
+	int nTauNeutrino = 0;
+	int m_bJet = 0;
+	int m_cJet = 0;
+	int m_gJet = 0;
+	int m_other = 0;
+	int jetFlavourPDG = 0;
 	++m_nEvtSum;
 	this->Clear();
 	streamlog_out(MESSAGE) << "" << std::endl;
@@ -412,11 +475,22 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 
         try
         {
+		jetFlacourCollection = pLCEvent->getCollection( m_jetFlavour );
+		m_bJet = jetFlacourCollection->getParameters().getIntVal("isDecayedTob"); if ( m_bJet == 1 ) jetFlavourPDG = 5;
+		m_cJet = jetFlacourCollection->getParameters().getIntVal("isDecayedToc"); if ( m_cJet == 1 ) jetFlavourPDG = 4;
+		m_gJet = jetFlacourCollection->getParameters().getIntVal("isDecayedTog"); if ( m_gJet == 1 ) jetFlavourPDG = 21;
+		m_other = jetFlacourCollection->getParameters().getIntVal("isDecayedToother"); if ( m_other == 1 ) jetFlavourPDG = 0;
+		if ( m_bJet == 1 && !m_includbJets ) return;
+		if ( m_cJet == 1 && !m_includcJets ) return;
+		if ( m_gJet == 1 && !m_includgJets ) return;
+		if ( m_other == 1 && !m_includOthers ) return;
+
 		MCParticleCollection = pLCEvent->getCollection( m_mcParticleCollection );
 		int nMCP = MCParticleCollection->getNumberOfElements();
 		for ( int i_mcp = 0 ; i_mcp < nMCP ; ++i_mcp )
 		{
 			MCParticle *testLepton = dynamic_cast<EVENT::MCParticle*>( MCParticleCollection->getElementAt( i_mcp ) );
+			if ( abs( testLepton->getPDG() ) == 16 && ( testLepton->getGeneratorStatus() ) == 1 ) ++nTauNeutrino;
 			bool primarySLDecay = false;
 			bool downStreamSLDecay = false;
 			bool upStreamSLDecay = false;
@@ -460,11 +534,13 @@ void SLDCorrection::processEvent( EVENT::LCEvent *pLCEvent )
 						streamlog_out(DEBUG0) << "	<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<   >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>" << std::endl;
 						streamlog_out(DEBUG0) << "	<<<<<<<<<<<<<<<< There are no upstream and downstream semi-leptonic decay >>>>>>>>>>>>>>>>>" << std::endl;
 						h_SLDecayOrder->Fill( 1.5 );
+						m_jetFlavourPDG.push_back( jetFlavourPDG );
 						doSLDCorrection( pLCEvent , testLepton );
 					}
 				}
 			}
 		}
+		m_nTauNeutrino = nTauNeutrino;
 
 		m_pTTree->Fill();
 	}
@@ -636,9 +712,9 @@ void SLDCorrection::doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDL
 	TLorentzVector parentFourMomentumNeg = fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral;
 	std::vector< double > primaryVertex = getPrimaryVertex( pLCEvent , SLDLepton );
 	std::vector< double > secondaryVertex = getSecondaryVertex( pLCEvent , SLDLepton );
-	double PrimaryR = sqrt( pow( primaryVertex[ 0 ] , 2 ) + pow( primaryVertex[ 1 ] , 2 ) + pow( primaryVertex[ 2 ] , 2 ) );
-	double SecondaryR = sqrt( pow( secondaryVertex[ 0 ] , 2 ) + pow( secondaryVertex[ 1 ] , 2 ) + pow( secondaryVertex[ 2 ] , 2 ) );
-	h_foundVertex->Fill( ( PrimaryR == 0 ? 0.5 : 1.5 ) , ( SecondaryR == 0 ? 0.5 : 1.5 ) );
+	bool foundPrimaryVertex = ( primaryVertex[ 3 ] > 0 ? true : false );
+	bool foundSecondaryVertex = ( secondaryVertex[ 3 ] > 0 ? true : false );
+	h_foundVertex->Fill( ( foundPrimaryVertex ? 1.5 : 0.5 ) , ( foundSecondaryVertex ? 1.5 : 0.5 ) );
 	int parentCharge = getParentCharge( SLDLepton );
 	if ( parentCharge == -2 )
 	{
@@ -660,7 +736,9 @@ void SLDCorrection::doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDL
 	{
 		h_parentHadronCharge->Fill( 4.5 );
 	}
-	if ( PrimaryR == 0 || SecondaryR == 0 ) return;
+	if ( !foundPrimaryVertex || !foundSecondaryVertex ) return;
+	double parentHadronMass = getParentHadronMass( SLDLepton );
+	streamlog_out(DEBUG0) << "	-----------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
 	if ( m_cheatFlightDirection )
 	{
 		flightDirection = cheatFlightDirection( SLDLepton );
@@ -669,27 +747,73 @@ void SLDCorrection::doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDL
 	{
 		if ( m_considerParentCharge )
 		{
-			flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral , primaryVertex , secondaryVertex , parentCharge );
+			flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral , primaryVertex , secondaryVertex , 0 );
+			float flightDistance = sqrt( pow( secondaryVertex[ 0 ] - primaryVertex[ 0 ] , 2 ) + pow( secondaryVertex[ 1 ] - primaryVertex[ 1 ] , 2 ) + pow( secondaryVertex[ 2 ] - primaryVertex[ 2 ] , 2 ) );
+			if ( flightDistance == 0.0 )
+			{
+				flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral ).Vect();
+				flightDirection.SetMag( 1.0 );
+			}
+			recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
+			recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
+			recoNeutrinoFourMomentumClose = ( abs( recoNeutrinoFourMomentumPos.E() - trueNeutrinoFourMomentum.E() ) < abs( recoNeutrinoFourMomentumNeg.E() - trueNeutrinoFourMomentum.E() ) ? recoNeutrinoFourMomentumPos : recoNeutrinoFourMomentumNeg );
+			m_recoNuCloseInitialPx.push_back( recoNeutrinoFourMomentumClose.Px() );
+			m_recoNuCloseInitialPy.push_back( recoNeutrinoFourMomentumClose.Py() );
+			m_recoNuCloseInitialPz.push_back( recoNeutrinoFourMomentumClose.Pz() );
+			m_recoNuCloseInitialE.push_back( recoNeutrinoFourMomentumClose.E() );
+			for ( int i_iter = 0 ; i_iter < m_nIterFlightDirCorrection ; ++i_iter )
+			{
+				flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumPos , primaryVertex , secondaryVertex , parentCharge );
+				if ( flightDistance == 0.0 )
+				{
+					flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumPos ).Vect();
+					flightDirection.SetMag( 1.0 );
+				}
+				recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
+				flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumNeg , primaryVertex , secondaryVertex , parentCharge );
+				if ( flightDistance == 0.0 )
+				{
+					flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumNeg ).Vect();
+					flightDirection.SetMag( 1.0 );
+				}
+				recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
+			}
 		}
 		else
 		{
 			flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral , primaryVertex , secondaryVertex , 0 );
+			float flightDistance = sqrt( pow( secondaryVertex[ 0 ] - primaryVertex[ 0 ] , 2 ) + pow( secondaryVertex[ 1 ] - primaryVertex[ 1 ] , 2 ) + pow( secondaryVertex[ 2 ] - primaryVertex[ 2 ] , 2 ) );
+			if ( flightDistance == 0.0 )
+			{
+				flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral ).Vect();
+				flightDirection.SetMag( 1.0 );
+			}
+			recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
+			recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
+			recoNeutrinoFourMomentumClose = ( abs( recoNeutrinoFourMomentumPos.E() - trueNeutrinoFourMomentum.E() ) < abs( recoNeutrinoFourMomentumNeg.E() - trueNeutrinoFourMomentum.E() ) ? recoNeutrinoFourMomentumPos : recoNeutrinoFourMomentumNeg );
+			m_recoNuCloseInitialPx.push_back( recoNeutrinoFourMomentumClose.Px() );
+			m_recoNuCloseInitialPy.push_back( recoNeutrinoFourMomentumClose.Py() );
+			m_recoNuCloseInitialPz.push_back( recoNeutrinoFourMomentumClose.Pz() );
+			m_recoNuCloseInitialE.push_back( recoNeutrinoFourMomentumClose.E() );
+//			flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumPos , primaryVertex , secondaryVertex , 0 );
+			if ( flightDistance == 0.0 )
+			{
+				flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumPos ).Vect();
+				flightDirection.SetMag( 1.0 );
+			}
+			recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
+//			flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumNeg , primaryVertex , secondaryVertex , 0 );
+			if ( flightDistance == 0.0 )
+			{
+				flightDirection = ( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumNeg ).Vect();
+				flightDirection.SetMag( 1.0 );
+			}
+			recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
 		}
 	}
-	double parentHadronMass = getParentHadronMass( SLDLepton );
-	streamlog_out(DEBUG0) << "	-----------------------------------------------------------------------------------------------------------------------------------------" << std::endl;
+
 
 	recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
-	recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
-	recoNeutrinoFourMomentumClose = ( abs( recoNeutrinoFourMomentumPos.E() - trueNeutrinoFourMomentum.E() ) < abs( recoNeutrinoFourMomentumNeg.E() - trueNeutrinoFourMomentum.E() ) ? recoNeutrinoFourMomentumPos : recoNeutrinoFourMomentumNeg );
-	m_recoNuCloseInitialPx.push_back( recoNeutrinoFourMomentumClose.Px() );
-	m_recoNuCloseInitialPy.push_back( recoNeutrinoFourMomentumClose.Py() );
-	m_recoNuCloseInitialPz.push_back( recoNeutrinoFourMomentumClose.Pz() );
-	m_recoNuCloseInitialE.push_back( recoNeutrinoFourMomentumClose.E() );
-
-	flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumPos , primaryVertex , secondaryVertex , parentCharge );
-	recoNeutrinoFourMomentumPos = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , +1 );
-	flightDirection = getFlightDirection( fourMomentumLepton + visibleFourMomentumCharged + visibleFourMomentumNeutral + recoNeutrinoFourMomentumNeg , primaryVertex , secondaryVertex , parentCharge );
 	recoNeutrinoFourMomentumNeg = getNeutrinoFourMomentum( flightDirection , fourMomentumLepton , visibleFourMomentumCharged , visibleFourMomentumNeutral , parentHadronMass , -1 );
 
 	recoNeutrinoFourMomentumClose = ( abs( recoNeutrinoFourMomentumPos.E() - trueNeutrinoFourMomentum.E() ) < abs( recoNeutrinoFourMomentumNeg.E() - trueNeutrinoFourMomentum.E() ) ? recoNeutrinoFourMomentumPos : recoNeutrinoFourMomentumNeg );
@@ -729,16 +853,16 @@ void SLDCorrection::doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDL
 
 std::vector< double > SLDCorrection::getPrimaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton )
 {
-	std::vector< double > primaryVertex( 3 , 0.0 );
-	Vertex* parentHadronEndPoint = NULL;
-	Vertex* parentHadronStartPoint = NULL;
+	std::vector< double > primaryVertex( 4 , 0.0 );
+	primaryVertex[ 3 ] = -1.0;// to clarify whether vertex is found or not?
 	if ( m_cheatVertices )
 	{
 		const EVENT::MCParticle *MotherHadron = SLDLepton->getParents()[ 0 ];
 		primaryVertex[ 0 ] = MotherHadron->getVertex()[ 0 ];
 		primaryVertex[ 1 ] = MotherHadron->getVertex()[ 1 ];
 		primaryVertex[ 2 ] = MotherHadron->getVertex()[ 2 ];
-		streamlog_out(DEBUG4) << "		true primary Vertex (x,y,z): 	" << primaryVertex[ 0 ] << "	, " << primaryVertex[ 1 ] << "	, " << primaryVertex[ 2 ] << std::endl;
+		primaryVertex[ 3 ] = 1.0;
+		streamlog_out(DEBUG4) << "		true primary Vertex (x,y,z): 		" << primaryVertex[ 0 ] << "	, " << primaryVertex[ 1 ] << "	, " << primaryVertex[ 2 ] << std::endl;
 	}
 	else
 	{
@@ -747,51 +871,29 @@ std::vector< double > SLDCorrection::getPrimaryVertex( EVENT::LCEvent *pLCEvent 
 		primaryVertex[ 0 ] = primaryVtx->getPosition()[ 0 ];
 		primaryVertex[ 1 ] = primaryVtx->getPosition()[ 1 ];
 		primaryVertex[ 2 ] = primaryVtx->getPosition()[ 2 ];
+		primaryVertex[ 3 ] = 1.0;
 		streamlog_out(DEBUG4) << "		reco primary Vertex (x,y,z): 	" << primaryVertex[ 0 ] << "	, " << primaryVertex[ 1 ] << "	, " << primaryVertex[ 2 ] << std::endl;
-/*
-		ReconstructedParticle* linkedRecoLepton = getLinkedPFO( pLCEvent , SLDLepton , true , false );
-		if ( linkedRecoLepton != NULL )
-		{
-			parentHadronEndPoint = linkedRecoLepton->getStartVertex();
-			if ( parentHadronEndPoint != NULL )
-			{
-				ReconstructedParticle* parenHadron = parentHadronEndPoint->getAssociatedParticle();
-				parentHadronStartPoint = parenHadron->getStartVertex();
-				if ( parentHadronStartPoint != NULL )
-				{
-					primaryVertex[ 0 ] = parentHadronStartPoint->getPosition()[ 0 ];
-					primaryVertex[ 1 ] = parentHadronStartPoint->getPosition()[ 1 ];
-					primaryVertex[ 2 ] = parentHadronStartPoint->getPosition()[ 2 ];
-					streamlog_out(DEBUG4) << "		reco primary Vertex (x,y,z): 	" << primaryVertex[ 0 ] << "	, " << primaryVertex[ 1 ] << "	, " << primaryVertex[ 2 ] << std::endl;
-				}
-				else
-				{
-					streamlog_out(DEBUG4) << "		Could not find primary vertex of mother hadron" << std::endl;
-				}
-			}
-			else
-			{
-				streamlog_out(DEBUG4) << "		Could not find End point of mother hadron" << std::endl;
-			}
-		}
-		else
-		{
-			streamlog_out(DEBUG4) << "		Could not find reconstructed particle for finding primary vertex" << std::endl;
-		}
-*/	}
+	}
+	m_SLDecayXi.push_back( primaryVertex[ 0 ] );
+	m_SLDecayYi.push_back( primaryVertex[ 1 ] );
+	m_SLDecayZi.push_back( primaryVertex[ 2 ] );
+	m_SLDecayRi.push_back( sqrt( pow( primaryVertex[ 0 ] , 2 ) + pow( primaryVertex[ 1 ] , 2 ) + pow( primaryVertex[ 2 ] , 2 ) ) );
 	return primaryVertex;
 }
 
 std::vector< double > SLDCorrection::getSecondaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton )
 {
-	std::vector< double > secondaryVertex( 3 , 0.0 );
-	Vertex* parentHadronEndPoint = NULL;
+	std::vector< double > secondaryVertex( 4 , 0.0 );
+	bool foundRecoLeptonInBuildUpVertex = false;
+	bool foundRecoLeptonInPrimaryVertex = false;
+	secondaryVertex[ 3 ] = -1.0;// to clarify whether vertex is found or not?
 	if ( m_cheatVertices )
 	{
 		const EVENT::MCParticle *MotherHadron = SLDLepton->getParents()[ 0 ];
 		secondaryVertex[ 0 ] = MotherHadron->getEndpoint()[ 0 ];
 		secondaryVertex[ 1 ] = MotherHadron->getEndpoint()[ 1 ];
 		secondaryVertex[ 2 ] = MotherHadron->getEndpoint()[ 2 ];
+		secondaryVertex[ 3 ] = 1.0;
 		streamlog_out(DEBUG4) << "		true secondary Vertex (x,y,z): 	" << secondaryVertex[ 0 ] << "	, " << secondaryVertex[ 1 ] << "	, " << secondaryVertex[ 2 ] << std::endl;
 	}
 	else
@@ -799,6 +901,7 @@ std::vector< double > SLDCorrection::getSecondaryVertex( EVENT::LCEvent *pLCEven
 		try
 		{
 			LCCollection *BuildUpVertexCollection = pLCEvent->getCollection( m_inputBuildUpVertex );
+			streamlog_out(DEBUG2) << "	There are " << BuildUpVertexCollection->getNumberOfElements() << " BuildUp Vertices" << std::endl;
 		}
 		catch(DataNotAvailableException &e)
 	        {
@@ -806,8 +909,10 @@ std::vector< double > SLDCorrection::getSecondaryVertex( EVENT::LCEvent *pLCEven
 			return secondaryVertex;
 	        }
 		ReconstructedParticle* linkedRecoLepton = getLinkedPFO( pLCEvent , SLDLepton , true , false );
+		m_foundRecoLepton.push_back( ( linkedRecoLepton == NULL ? 0 : 1 ) );
 		LCCollection *BuildUpVertexCollection = pLCEvent->getCollection( m_inputBuildUpVertex );
 		int n_VTX = BuildUpVertexCollection->getNumberOfElements();
+		m_foundBuildUpVertex.push_back( ( n_VTX == 0 ? 0 : 1 ) );
 		for ( int i_vtx = 0 ; i_vtx < n_VTX ; ++i_vtx )
 		{
 			Vertex* secondaryVtx = dynamic_cast<Vertex*>( BuildUpVertexCollection->getElementAt( i_vtx ) );
@@ -821,30 +926,57 @@ std::vector< double > SLDCorrection::getSecondaryVertex( EVENT::LCEvent *pLCEven
 					secondaryVertex[ 0 ] = secondaryVtx->getPosition()[ 0 ];
 					secondaryVertex[ 1 ] = secondaryVtx->getPosition()[ 1 ];
 					secondaryVertex[ 2 ] = secondaryVtx->getPosition()[ 2 ];
+					secondaryVertex[ 3 ] = 1.0;
+					foundRecoLeptonInBuildUpVertex = true;
 				}
 			}
 		}
-/*
-		if ( linkedRecoLepton != NULL )
+		m_foundRecoLeptonInBuildUpVertex.push_back( ( foundRecoLeptonInBuildUpVertex ? 1 : 0 ) );
+		if ( !foundRecoLeptonInBuildUpVertex )
 		{
-			parentHadronEndPoint = linkedRecoLepton->getStartVertex();
-			if ( parentHadronEndPoint != NULL )
+			LCCollection *primaryVertexCollection = pLCEvent->getCollection( m_inputPrimaryVertex );
+			Vertex* primaryVtx = dynamic_cast<Vertex*>( primaryVertexCollection->getElementAt( 0 ) );
+			ReconstructedParticle* parent = primaryVtx->getAssociatedParticle();
+			int n_daughters = ( parent->getParticles() ).size();
+			for ( int i_daughter = 0 ; i_daughter < n_daughters ; ++i_daughter )
 			{
-				secondaryVertex[ 0 ] = parentHadronEndPoint->getPosition()[ 0 ];
-				secondaryVertex[ 1 ] = parentHadronEndPoint->getPosition()[ 1 ];
-				secondaryVertex[ 2 ] = parentHadronEndPoint->getPosition()[ 2 ];
-				streamlog_out(DEBUG4) << "		reco secondary Vertex (x,y,z): 	" << secondaryVertex[ 0 ] << "	, " << secondaryVertex[ 1 ] << "	, " << secondaryVertex[ 2 ] << std::endl;
+				ReconstructedParticle* daughter = parent->getParticles()[ i_daughter ];
+				if ( linkedRecoLepton == daughter )
+				{
+					secondaryVertex[ 0 ] = primaryVtx->getPosition()[ 0 ];
+					secondaryVertex[ 1 ] = primaryVtx->getPosition()[ 1 ];
+					secondaryVertex[ 2 ] = primaryVtx->getPosition()[ 2 ];
+					secondaryVertex[ 3 ] = 0.0;
+					foundRecoLeptonInPrimaryVertex = true;
+				}
 			}
-			else
-			{
-				streamlog_out(DEBUG4) << "		Could not find secondary vertex of mother hadron" << std::endl;
-			}
+		}
+		m_foundRecoLeptonInPrimaryVertex.push_back( ( foundRecoLeptonInPrimaryVertex ? 1 : 0 ) );
+		if ( foundRecoLeptonInBuildUpVertex )
+		{
+			h_secondaryVertex->Fill( 0.5 );
+		}
+		else if ( foundRecoLeptonInPrimaryVertex )
+		{
+			h_secondaryVertex->Fill( 1.5 );
+		}
+		else if ( linkedRecoLepton != NULL )
+		{
+			h_secondaryVertex->Fill( 2.5 );
+		}
+		else if ( linkedRecoLepton == NULL )
+		{
+			h_secondaryVertex->Fill( 3.5 );
 		}
 		else
 		{
-			streamlog_out(DEBUG4) << "		Could not find reconstructed particle for finding secondary vertex" << std::endl;
+			h_secondaryVertex->Fill( 4.5 );
 		}
-*/	}
+	}
+	m_SLDecayXf.push_back( secondaryVertex[ 0 ] );
+	m_SLDecayYf.push_back( secondaryVertex[ 1 ] );
+	m_SLDecayZf.push_back( secondaryVertex[ 2 ] );
+	m_SLDecayRf.push_back( sqrt( pow( secondaryVertex[ 0 ] , 2 ) + pow( secondaryVertex[ 1 ] , 2 ) + pow( secondaryVertex[ 2 ] , 2 ) ) );
 	return secondaryVertex;
 }
 
@@ -890,12 +1022,12 @@ double SLDCorrection::getParentHadronMass( MCParticle *SLDLepton )
 		const EVENT::MCParticle *MotherHadron = SLDLepton->getParents()[ 0 ];
 		TrueParentHadronMass = MotherHadron->getMass();
 		streamlog_out(DEBUG4) << "		Parent Hadron (PDG: " << MotherHadron->getPDG() << "):" << std::endl;
-		streamlog_out(DEBUG0) << "			Energy:			" << MotherHadron->getEnergy() << std::endl;
-		streamlog_out(DEBUG0) << "			Mass:			" << MotherHadron->getMass() << std::endl;
-		streamlog_out(DEBUG0) << "			Momentum (px,py,pz): 	" << MotherHadron->getMomentum()[ 0 ] << "	, " << MotherHadron->getMomentum()[ 1 ] << "	, " << MotherHadron->getMomentum()[ 2 ] << std::endl;
+		streamlog_out(DEBUG0) << "			Energy:									  " << MotherHadron->getEnergy() << std::endl;
+		streamlog_out(DEBUG0) << "			Mass:		" << MotherHadron->getMass() << std::endl;
+		streamlog_out(DEBUG0) << "			Momentum (px,py,pz): 		" << MotherHadron->getMomentum()[ 0 ] << "	, " << MotherHadron->getMomentum()[ 1 ] << "	, " << MotherHadron->getMomentum()[ 2 ] << std::endl;
 		streamlog_out(DEBUG0) << "			MomentumEP (px,py,pz): 	" << MotherHadron->getMomentumAtEndpoint()[ 0 ] << "	, " << MotherHadron->getMomentumAtEndpoint()[ 1 ] << "	, " << MotherHadron->getMomentumAtEndpoint()[ 2 ] << std::endl;
-		streamlog_out(DEBUG0) << "			Vertex (x,y,z): 	" << MotherHadron->getVertex()[ 0 ] << "	, " << MotherHadron->getVertex()[ 1 ] << "	, " << MotherHadron->getVertex()[ 2 ] << std::endl;
-		streamlog_out(DEBUG0) << "			EndPoint (x,y,z): 	" << MotherHadron->getEndpoint()[ 0 ] << "	, " << MotherHadron->getEndpoint()[ 1 ] << "	, " << MotherHadron->getEndpoint()[ 2 ] << std::endl;
+		streamlog_out(DEBUG0) << "			Vertex (x,y,z): 		" << MotherHadron->getVertex()[ 0 ] << "	, " << MotherHadron->getVertex()[ 1 ] << "	, " << MotherHadron->getVertex()[ 2 ] << std::endl;
+		streamlog_out(DEBUG0) << "			EndPoint (x,y,z): 		" << MotherHadron->getEndpoint()[ 0 ] << "	, " << MotherHadron->getEndpoint()[ 1 ] << "	, " << MotherHadron->getEndpoint()[ 2 ] << std::endl;
 	}
 	catch(DataNotAvailableException &e)
         {
@@ -951,6 +1083,7 @@ TLorentzVector SLDCorrection::getVisibleFourMomentum( EVENT::LCEvent *pLCEvent ,
 		{
 			EVENT::MCParticle *daughter = parentHadron->getDaughters()[ i_daughter ];
 			ReconstructedParticle* linkedPFO = NULL;
+			streamlog_out(DEBUG2) << "	Daughter[ " << i_daughter <<" ]: genStatus = " << daughter->getGeneratorStatus() << " , PDG = " << daughter->getPDG() << " , Charge = " << daughter->getCharge() << std::endl;
 			if ( daughter->getGeneratorStatus() == 1 )
 			{
 				if ( abs( daughter->getPDG() ) != 12 && abs( daughter->getPDG() ) != 14 && abs( daughter->getPDG() ) != 16 && daughter != SLDLepton )
@@ -959,24 +1092,24 @@ TLorentzVector SLDCorrection::getVisibleFourMomentum( EVENT::LCEvent *pLCEvent ,
 					{
 						streamlog_out(DEBUG2) << "		Charged:" << std::endl;
 						streamlog_out(DEBUG2) << "			True:(	" << daughter->getPDG() << "	, " << daughter->getMass() << "	, " << daughter->getMomentum()[ 0 ] << "	, " << daughter->getMomentum()[ 1 ] << "	, " << daughter->getMomentum()[ 2 ] << "	, " << daughter->getEnergy() << "	, " << daughter->getCharge() << "	)" << std::endl;
-						if ( m_recoFourMomentumOfVisibles == 0 )
-						{
-							linkedPFO = getLinkedTrack4MomOfPFO( pLCEvent , daughter );
-						}
-						else if ( m_recoFourMomentumOfVisibles == 1 )
-						{
-							linkedPFO = getLinkedChargedPFO( pLCEvent , daughter );
-						}
-						else
-						{
-							linkedPFO = getLinkedPFO( pLCEvent , SLDLepton , true , false );
-						}
 						if ( m_cheatCharged4momentum )// || linkedPFO == NULL )
 						{
 							VisibleFourMomentum += TLorentzVector( daughter->getMomentum()[ 0 ] , daughter->getMomentum()[ 1 ] , daughter->getMomentum()[ 2 ] , daughter->getEnergy() );
 						}
 						else
 						{
+							if ( m_recoFourMomentumOfVisibles == 0 )
+							{
+								linkedPFO = getLinkedTrack4MomOfPFO( pLCEvent , daughter );
+							}
+							else if ( m_recoFourMomentumOfVisibles == 1 )
+							{
+								linkedPFO = getLinkedChargedPFO( pLCEvent , daughter );
+							}
+							else
+							{
+								linkedPFO = getLinkedPFO( pLCEvent , SLDLepton , true , false );
+							}
 							if ( linkedPFO == NULL )
 							{
 //								VisibleFourMomentum += TLorentzVector( daughter->getMomentum()[ 0 ] , daughter->getMomentum()[ 1 ] , daughter->getMomentum()[ 2 ] , daughter->getEnergy() );
@@ -1894,6 +2027,7 @@ void SLDCorrection::end()
 		h_recoPFOLinkedToMuon_Type->Write();
 		h_SLDecayOrder->Write();
 		h_foundVertex->Write();
+		h_secondaryVertex->Write();
 		h_parentHadronCharge->Write();
 		h_MCPTracks->Write();
 		h_MCPTracks_Eweighted->Write();
