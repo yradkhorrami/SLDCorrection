@@ -53,14 +53,20 @@ class SLDCorrection : public Processor
 		bool checkTauLeptonSLDecay( MCParticle *SLDLepton );
 		virtual void doSLDCorrection( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		TVector3 cheatFlightDirection( MCParticle *SLDLepton );
+		TVector3 getJetAxis( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		double getParentHadronMass( MCParticle *SLDLepton );
 		TLorentzVector getLeptonFourMomentum( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		TLorentzVector getVisibleFourMomentum( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton , MCParticle *parentHadron , bool getChargedTLV , bool getNeutralTLV );
 		TLorentzVector getTrueNeutrinoFourMomentum( MCParticle *SLDLepton );
 		ReconstructedParticle* getLinkedPFO( EVENT::LCEvent *pLCEvent , MCParticle *MCParticle , bool getChargedTLV , bool getNeutralTLV );
-		TVector3 getFlightDirection( TLorentzVector parentFourMomentum , std::vector< double > primaryVertex , std::vector< double > secondaryVertex , int parentCharge );
+		TVector3 getFlightDirection( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
+		TVector3 getParentHadronUnitMomentum( TLorentzVector parentFourMomentum , std::vector< double > primaryVertex , std::vector< double > secondaryVertex , int parentCharge );
 		std::vector< double > getPrimaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
 		std::vector< double > getSecondaryVertex( EVENT::LCEvent *pLCEvent , MCParticle *SLDLepton );
+		bool hasDownStreamVertex( MCParticle *neutralParticle );
+		bool hasVertex( MCParticle *neutralParticle );
+		std::vector<double> getDownStreamVertex( EVENT::LCEvent *pLCEvent , MCParticle *neutralParticle );
+		std::vector<double> getVertex( EVENT::LCEvent *pLCEvent , MCParticle *neutralParticle );
 		int getParentCharge( MCParticle *SLDLepton );
 
 		TLorentzVector getParentHadron4mom( MCParticle *SLDLepton );
@@ -118,6 +124,7 @@ class SLDCorrection : public Processor
 		bool					m_includeTSLD = true;
 		bool					m_cheatSLDLeptons = true;
 		bool					m_cheatFlightDirection = true;
+		bool					m_useJetAxisAsFlightDirection = true;
 		bool					m_considerParentCharge = true;
 		bool					m_cheatVertices = true;
 		bool					m_cheatLepton4momentum = true;
@@ -136,6 +143,7 @@ class SLDCorrection : public Processor
 		double					mm2m;
 		double					eV2GeV;
 		double					eB;
+		bool					foundFlightDirection;
 		int					m_nTauSLDecay;
 		int					m_nTauNeutrino;
 		int					m_nNeutrino;
@@ -195,6 +203,7 @@ class SLDCorrection : public Processor
 		DoubleVector				m_NuPyNormalizedResidual{};
 		DoubleVector				m_NuPzNormalizedResidual{};
 		DoubleVector				m_NuENormalizedResidual{};
+		DoubleVector				m_FlightDirectionError{};
 		TH1F					*h_NuPxResidual{};
 		TH1F					*h_NuPyResidual{};
 		TH1F					*h_NuPzResidual{};
